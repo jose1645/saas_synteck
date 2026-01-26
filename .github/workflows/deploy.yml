@@ -116,6 +116,7 @@ jobs:
             # Verificación rápida del estado
             docker ps
             
-            # Limpieza final de caché de construcción
-            docker builder prune -f
+            echo "--- ESPERANDO ESTABILIZACIÓN (15s) ---"
+            sleep 15
+            
             docker exec saas_api python -m app.seed
