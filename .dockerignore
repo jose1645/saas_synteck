@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+.github
+
+# Environment Variables
+.env
+.env.*
+! .env.example
+env/
+venv/
+backend/.env
+
+# Dependencies
+node_modules
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.installed.cfg
+*.egg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea

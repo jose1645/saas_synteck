@@ -1,0 +1,20 @@
+# Environment Variables
+.env
+.env.*
+! .env.example
+env/
+venv/
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.installed.cfg
+*.egg
+
+# OS
+.DS_Store
+Thumbs.db

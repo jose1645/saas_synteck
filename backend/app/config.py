@@ -2,10 +2,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Definimos las variables con el MISMO nombre que en el .env
-    aws_access_key_id: str
-    aws_secret_access_key: str
-    aws_region: str
-    lambda_function_name: str
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_region: str = "us-east-1"
+    lambda_function_name: str = "Aprovisionador-Iot_core"
     
     # Esta configuración le dice a Pydantic que busque un archivo .env
     model_config = SettingsConfigDict(

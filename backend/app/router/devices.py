@@ -39,21 +39,24 @@ router = APIRouter(
     tags=["Devices"]
 )
 
-# Cliente de Lambda usando los settings del .env
-lambda_client = boto3.client(
-    'lambda',
-    aws_access_key_id=settings.aws_access_key_id,
-    aws_secret_access_key=settings.aws_secret_access_key,
-    region_name=settings.aws_region
-)
+# Función helper para obtener cliente boto3
+def get_aws_client(service_name: str):
+    if settings.aws_access_key_id and settings.aws_secret_access_key:
+        return boto3.client(
+            service_name,
+            aws_access_key_id=settings.aws_access_key_id,
+            aws_secret_access_key=settings.aws_secret_access_key,
+            region_name=settings.aws_region
+        )
+    else:
+        # Usa el default credential provider chain (Environment vars, Instance Profile, etc.)
+        return boto3.client(service_name, region_name=settings.aws_region)
+
+# Cliente de Lambda 
+lambda_client = get_aws_client('lambda')
 
 # Cliente para consultar el estado real en AWS IoT Core
-iot_client = boto3.client(
-    'iot',
-    aws_access_key_id=settings.aws_access_key_id,
-    aws_secret_access_key=settings.aws_secret_access_key,
-    region_name=settings.aws_region
-)
+iot_client = get_aws_client('iot')
 @router.get("/", response_model=List[schemas.DeviceOut])
 def get_all_partner_devices(
     db: Session = Depends(database.get_db),
@@ -200,13 +203,10 @@ async def provision_device(
     try:
         # Forzamos la creación del cliente aquí mismo para asegurar que use los settings actuales
         # Esto ayuda si boto3 está agarrando credenciales de otro lado
-        import boto3
-        local_lambda = boto3.client(
-            'lambda',
-            aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key,
-            region_name=settings.aws_region
-        )
+        # Forzamos la creación del cliente aquí mismo para asegurar que use los settings actuales
+        # Esto ayuda si boto3 está agarrando credenciales de otro lado
+        # import boto3 (Ya importado arriba)
+        local_lambda = get_aws_client('lambda')
 
         logger.info(f"Invocando Lambda para: {device.aws_iot_uid}")
         
