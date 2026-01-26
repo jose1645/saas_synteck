@@ -102,12 +102,12 @@ jobs:
 
             echo "--- RECONSTRUYENDO SERVICIOS ---"
             # Construir secuencialmente para no saturar la RAM de la t2.micro
-            # Quitamos --no-cache para aprovechar capas previas y bajar carga CPU/RAM
-            docker compose build api_backend
-            docker compose build partner_portal
-            # docker compose build client_portal (Si no se usa activamente, comentar ahorra 400MB RAM)
+            # Usamos --no-cache (A SOLICITUD DE USUARIO) para garantizar dependencias nuevas
+            docker compose build --no-cache api_backend
+            docker compose build --no-cache partner_portal
+            # docker compose build client_portal (Comentado por ahorro de RAM si no se usa)
             docker compose build client_portal
-            docker compose build superadmin_portal
+            docker compose build --no-cache superadmin_portal
 
             echo "--- LEVANTANDO SISTEMA ---"
             # 4. Levantar todo el stack corregido con la nueva red
@@ -118,5 +118,8 @@ jobs:
             
             echo "--- ESPERANDO ESTABILIZACIÓN (15s) ---"
             sleep 15
+            
+            # Limpieza forzada tras deploy (A SOLICITUD DE USUARIO)
+            docker builder prune -f
             
             docker exec saas_api python -m app.seed
