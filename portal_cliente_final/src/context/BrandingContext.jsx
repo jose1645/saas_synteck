@@ -41,49 +41,58 @@ export const BrandingProvider = ({ children }) => {
     };
 
     const applyTheme = (themeName) => {
-        const theme = themes[themeName] || themes.dark;
+        const normalized = (themeName || 'dark').toLowerCase();
+        const theme = themes[normalized] || themes.dark;
+
+        console.log(`🎨 [Branding] Applying theme: '${themeName}' (normalized: '${normalized}')`);
+
         const root = document.documentElement;
         Object.keys(theme).forEach(key => {
             root.style.setProperty(key, theme[key]);
         });
     };
 
-    // Efecto para aplicar tema inicial
+    // Efecto 1: Sincronizar UI y Persistencia cuando cambia el estado 'branding'
     useEffect(() => {
-        applyTheme(branding.theme);
-    }, []);
+        const normalized = (branding.theme || 'dark').toLowerCase();
+        console.log("🎨 [Branding] Syncing theme to DOM & Storage:", branding.name, "Theme:", normalized);
+        applyTheme(normalized);
+        localStorage.setItem('synteck_branding', JSON.stringify(branding));
+    }, [branding]);
 
+    // Efecto 2: Buscar configuración en backend al detectar sesión
     useEffect(() => {
-        console.log("🎨 [Branding] Effect triggered. User:", user?.id);
-
         const fetchBranding = async () => {
+            const partnerId = user?.partner_id || clientData?.partner_id;
+
+            if (!partnerId) {
+                return;
+            }
+
             try {
-                let partnerId = user?.partner_id || clientData?.partner_id;
+                console.log(`🎨 [Branding] Fetching remote config for Partner ${partnerId}...`);
+                const res = await api.get(`/partners/${partnerId}`);
+                const extra = res.data.extra_data?.branding;
 
-                if (partnerId) {
-                    console.log(`🎨 [Branding] Fetching for Partner ${partnerId}...`);
-                    const res = await api.get(`/partners/${partnerId}`);
-                    const extra = res.data.extra_data?.branding;
+                if (extra) {
+                    const newBranding = {
+                        name: res.data.name,
+                        logoUrl: extra.logoUrl || "",
+                        theme: extra.theme || 'dark'
+                    };
 
-                    if (extra) {
-                        const newBranding = {
-                            name: res.data.name,
-                            logoUrl: extra.logoUrl,
-                            theme: extra.theme || 'dark'
-                        };
-
-                        // Solo actualizamos si cambiaron los datos para evitar re-renders
-                        if (JSON.stringify(newBranding) !== JSON.stringify(branding)) {
-                            console.log("🎨 [Branding] Updating & Persisting:", newBranding);
-                            setBranding(newBranding);
-                            localStorage.setItem('synteck_branding', JSON.stringify(newBranding));
-                            applyTheme(newBranding.theme);
+                    setBranding(prev => {
+                        const prevStr = JSON.stringify(prev);
+                        const newStr = JSON.stringify(newBranding);
+                        if (prevStr !== newStr) {
+                            console.log("🎨 [Branding] Remote config DIFFERENT. Updating state.");
+                            return newBranding;
                         }
-                    }
+                        return prev;
+                    });
                 }
             } catch (error) {
-                console.error("❌ [Branding] Error fetching:", error);
-                // No fallback to default on error, keep existing persistence if possible
+                console.error("❌ [Branding] Failed to fetch partner config from API:", error);
             }
         };
 
