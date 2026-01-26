@@ -102,11 +102,12 @@ jobs:
 
             echo "--- RECONSTRUYENDO SERVICIOS ---"
             # Construir secuencialmente para no saturar la RAM de la t2.micro
-            # Usamos --no-cache para asegurar que todo sea nuevo
-            docker compose build --no-cache api_backend
-            docker compose build --no-cache partner_portal
-            docker compose build --no-cache client_portal
-            docker compose build --no-cache superadmin_portal
+            # Quitamos --no-cache para aprovechar capas previas y bajar carga CPU/RAM
+            docker compose build api_backend
+            docker compose build partner_portal
+            # docker compose build client_portal (Si no se usa activamente, comentar ahorra 400MB RAM)
+            docker compose build client_portal
+            docker compose build superadmin_portal
 
             echo "--- LEVANTANDO SISTEMA ---"
             # 4. Levantar todo el stack corregido con la nueva red
