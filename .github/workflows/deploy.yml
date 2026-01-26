@@ -105,8 +105,8 @@ jobs:
             # Usamos --no-cache (A SOLICITUD DE USUARIO) para garantizar dependencias nuevas
             docker compose build --no-cache api_backend
             docker compose build --no-cache partner_portal
-            # docker compose build client_portal (Comentado por ahorro de RAM si no se usa)
-            docker compose build client_portal
+            # Reactivado para instancia Medium
+            docker compose build --no-cache client_portal
             docker compose build --no-cache superadmin_portal
 
             echo "--- LEVANTANDO SISTEMA ---"
