@@ -169,6 +169,12 @@ class ClientModuleOut(ClientModuleBase):
     class Config:
         from_attributes = True
 
+class ModuleUpdateSchema(BaseModel):
+    """Schema para actualizar el estado de un módulo desde el frontend"""
+    module_code: str
+    is_active: bool
+    config: Optional[Dict[str, Any]] = {}
+
 # =========================
 # DEVICES
 # =========================

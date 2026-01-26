@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 // Captura la URL inyectada por Docker o el .env local
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 console.log("📍 API URL CARGADA:", BASE_URL); // Esto aparecerá en la consola apenas cargue la web
 const api = axios.create({
   baseURL: BASE_URL,
 });
+
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
@@ -28,10 +29,10 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           // Usamos la misma constante BASE_URL para el refresh
-          const res = await axios.post(`${BASE_URL}/auth/refresh`, { 
-            refresh_token: refreshToken 
+          const res = await axios.post(`${BASE_URL}/auth/refresh`, {
+            refresh_token: refreshToken
           });
-          
+
           const { access_token, refresh_token: new_refresh } = res.data;
           localStorage.setItem("access_token", access_token);
           localStorage.setItem("refresh_token", new_refresh);

@@ -1,10 +1,48 @@
 @import "tailwindcss";
 
 @theme {
+  /* Colores legacy del tema industrial */
   --color-industrial-950: #05070a;
   --color-industrial-900: #0b0f1a;
   --color-industrial-800: #161d2f;
   --color-industrial-500: #00f2ff;
+
+  /* Colores dinámicos del branding - usan var() para referenciar las CSS variables */
+  --color-brand-primary: var(--bg-primary);
+  --color-brand-secondary: var(--bg-secondary);
+  --color-brand-sidebar: var(--bg-sidebar);
+  --color-brand-textPrimary: var(--text-primary);
+  --color-brand-textSecondary: var(--text-secondary);
+  --color-brand-border: var(--border-color);
+  --color-brand-accent: var(--accent-color);
+  --color-brand-accentSec: var(--accent-secondary);
+}
+
+/* Variables CSS dinámicas (definidas por BrandingContext) */
+:root {
+  /* Valores por defecto - se sobrescriben dinámicamente */
+  --bg-primary: #05070a;
+  --bg-secondary: #0b0f1a;
+  --bg-sidebar: #0b0f1a;
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --border-color: #1e293b;
+  --accent-color: #00f2ff;
+  --accent-secondary: #7000ff;
+}
+
+/* Aplicar tema al body y elementos principales */
+body {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Aplicar estilos base a contenedores principales */
+#root {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
 }
 
 /* Rejilla de fondo para dar sensación de precisión */

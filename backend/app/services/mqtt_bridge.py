@@ -6,6 +6,8 @@ from awsiot import mqtt5_client_builder
 from awscrt import mqtt5, auth
 from dotenv import load_dotenv
 import time # Importar al inicio
+from app.database import SessionLocal
+from app import models
 load_dotenv()
 
 def start_mqtt_bridge(ws_manager, partner_id, client_id, plant_id, device_id, metadata=None):
@@ -33,6 +35,16 @@ def start_mqtt_bridge(ws_manager, partner_id, client_id, plant_id, device_id, me
             return {k: clean_industrial_node(v) for k, v in node.items()}
         return node
 
+    def round_values(node):
+        """Redondeo recursivo a 2 decimales para cualquier profundidad"""
+        if isinstance(node, float):
+            return round(node, 2)
+        elif isinstance(node, dict):
+            return {k: round_values(v) for k, v in node.items()}
+        elif isinstance(node, list):
+            return [round_values(i) for i in node]
+        return node
+
     def on_publish_received(publish_packet_data):
         try:
             actual_topic = publish_packet_data.publish_packet.topic
@@ -55,7 +67,7 @@ def start_mqtt_bridge(ws_manager, partner_id, client_id, plant_id, device_id, me
             # 3. LIMPIEZA Y ENRIQUECIMIENTO
             # Buscamos en 'd', 'values' o raíz (según lo que mande la HMI)
             raw_industrial_values = payload.get('values', payload.get('d', payload))
-            clean_telemetry = clean_industrial_node(raw_industrial_values)
+            clean_telemetry = round_values(clean_industrial_node(raw_industrial_values))
             
             # Timestamp del Servidor (Server-side timestamping)
             server_ts = time.time()
@@ -82,6 +94,25 @@ def start_mqtt_bridge(ws_manager, partner_id, client_id, plant_id, device_id, me
                     ws_manager.send_personal_message(enriched_data, str(device_id)), 
                     main_loop
                 )
+
+            # --- PERSISTENCIA LOCAL (SQLite) ---
+            try:
+                db = SessionLocal()
+                # Verificar si el dispositivo tiene historia habilitada
+                device = db.query(models.Device).filter(models.Device.aws_iot_uid == str(device_id)).first()
+                if device and device.history_enabled:
+                    new_log = models.TelemetryLog(
+                        device_uid=str(device_id),
+                        data=clean_telemetry,
+                        path=subtopic_path
+                    )
+                    db.add(new_log)
+                    db.commit()
+                    # print(f"💾 [DB] Histórico guardado localmente para {device_id}")
+                db.close()
+            except Exception as db_err:
+                print(f"❌ [DB ERROR] No se pudo guardar histórico: {db_err}")
+
         except Exception as e:
             print(f"❌ [BRIDGE ERROR] Fallo al procesar mensaje: {e}")
 

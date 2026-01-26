@@ -10,21 +10,21 @@ export const historyService = {
         return response.data;
     },
 
-    downloadHistory: async (deviceUid, timeRange, start = null, end = null) => {
-        const params = { time_range: timeRange, format: 'csv' };
+    downloadHistory: async (deviceUid, timeRange, start = null, end = null, format = 'xlsx') => {
+        const params = { time_range: timeRange, format: format };
         if (start) params.start = start.toISOString();
         if (end) params.end = end.toISOString();
 
         const response = await api.get(`/historical/${deviceUid}`, {
             params,
-            responseType: 'blob' // Importante para descarga de binarios
+            responseType: 'blob'
         });
 
-        // Crear enlace invisible para descargar
+        const extension = format === 'xlsx' ? 'xlsx' : 'csv';
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `history_${deviceUid}_${timeRange}.csv`);
+        link.setAttribute('download', `history_${deviceUid}_${timeRange}.${extension}`);
         document.body.appendChild(link);
         link.click();
         link.remove();

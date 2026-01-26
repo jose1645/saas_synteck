@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, ArrowLeft, Check, ChevronDown,
   ChevronRight, Layers, Wifi, WifiOff, ChevronLeft,
-  History as HistoryIcon, Download
+  History as HistoryIcon, Download, AlertCircle, FileSpreadsheet
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -46,6 +46,20 @@ export default function PlantDetail() {
   const [customStart, setCustomStart] = useState(null);
   const [customEnd, setCustomEnd] = useState(null);
 
+  // Buffer de últimos valores conocidos para cada tag
+  const [lastKnownValues, setLastKnownValues] = useState({});
+
+  // Alerta de restricción de unidades
+  const [showUnitAlert, setShowUnitAlert] = useState(false);
+
+  // Auto-cerrar alerta después de 3s
+  useEffect(() => {
+    if (showUnitAlert) {
+      const timer = setTimeout(() => setShowUnitAlert(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showUnitAlert]);
+
   // 1. CARGA DE CONFIGURACIÓN Y ASIGNACIÓN DE COLORES
   useEffect(() => {
     const loadData = async () => {
@@ -67,6 +81,7 @@ export default function PlantDetail() {
             label: tag.display_name || tag.mqtt_key,
             path: tag.path || 'General',
             deviceUid: tag.device_uid,
+            unit: tag.unit || '',
             color: CHART_COLORS[idx % CHART_COLORS.length]
           }));
 
@@ -131,18 +146,19 @@ export default function PlantDetail() {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (format = 'xlsx') => {
     if (!deviceInfo) return;
     try {
       await historyService.downloadHistory(
         deviceInfo.aws_iot_uid,
         timeRange,
         customStart,
-        customEnd
+        customEnd,
+        format
       );
     } catch (error) {
       console.error("Download failed:", error);
-      alert("Error descargando CSV.");
+      alert(`Error descargando ${format.toUpperCase()}.`);
     }
   };
 
@@ -164,7 +180,7 @@ export default function PlantDetail() {
     const deviceUid = availableMetrics[0].deviceUid;
     const clientId = user?.client_id ?? 0;
 
-    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/monitor/ws';
+    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/monitor/ws';
     const wsUrl = `${wsBase}/1/${clientId}/${plantId}/${deviceUid}`;
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
@@ -177,13 +193,34 @@ export default function PlantDetail() {
         const incomingVals = data.telemetry;
 
         if (incomingVals) {
+          // Redondear todos los valores numéricos a 2 decimales
+          const roundedVals = {};
+          Object.keys(incomingVals).forEach(key => {
+            const value = incomingVals[key];
+            roundedVals[key] = typeof value === 'number'
+              ? Math.round(value * 100) / 100
+              : value;
+          });
+
+          // Actualizar buffer de últimos valores conocidos
+          setLastKnownValues(prev => ({
+            ...prev,
+            ...roundedVals
+          }));
+
           setChartData(prev => {
+            const now = new Date();
             const newEntry = {
-              time: new Date().toLocaleTimeString().slice(0, 8),
-              ...incomingVals
+              time: now.toISOString(), // ISO para consistencia
+              timestamp: now.getTime(),
+              ...roundedVals
             };
-            const updated = [...prev, newEntry];
-            return updated.length > 50 ? updated.slice(1) : updated;
+
+            // Mantener solo datos de los últimos 2 minutos (120,000 ms)
+            const threshold = now.getTime() - (2 * 60 * 1000);
+            const updated = [...prev, newEntry].filter(entry => entry.timestamp > threshold);
+
+            return updated;
           });
         }
       } catch (e) { console.error("❌ Error en stream:", e); }
@@ -203,6 +240,37 @@ export default function PlantDetail() {
       }
     };
   }, [plantId, loading, availableMetrics.length, isLive]);
+
+  // 3. HANDLER DE SELECCIÓN DE MÉTRICAS (Restringido por unidad)
+  const handleToggleMetric = (key) => {
+    const targetMetric = availableMetrics.find(m => m.key === key);
+    if (!targetMetric) return;
+
+    setSelectedMetrics(prev => {
+      // Si ya está seleccionada, simplemente la quitamos
+      if (prev.includes(key)) {
+        return prev.filter(m => m !== key);
+      }
+
+      // Si no hay ninguna seleccionada, la agregamos directamente
+      if (prev.length === 0) {
+        return [key];
+      }
+
+      // Verificar la unidad de las métricas ya seleccionadas
+      const firstSelectedKey = prev[0];
+      const firstSelectedMetric = availableMetrics.find(m => m.key === firstSelectedKey);
+
+      // Si la unidad coincide, permitimos selección múltiple
+      // Si la unidad es distinta, limpiamos lo anterior y dejamos solo la nueva
+      if (firstSelectedMetric?.unit !== targetMetric.unit) {
+        setShowUnitAlert(true);
+        return [key];
+      }
+
+      return [...prev, key];
+    });
+  };
 
   // Generación dinámica del árbol ISA-95
   const treeData = useMemo(() => {
@@ -233,13 +301,26 @@ export default function PlantDetail() {
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-w-[200px]">
           <RecursiveTree
             data={treeData}
-            toggleMetric={(key) => setSelectedMetrics(prev => prev.includes(key) ? prev.filter(m => m !== key) : [...prev, key])}
+            toggleMetric={handleToggleMetric}
             selectedMetrics={selectedMetrics}
             expandedNodes={expandedNodes}
             setExpandedNodes={setExpandedNodes}
             availableMetrics={availableMetrics}
+            currentValues={lastKnownValues}
           />
         </div>
+
+        {/* ALERTA DE RESTRICCIÓN DE UNIDADES */}
+        {showUnitAlert && (
+          <div className="mx-4 mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] font-bold text-amber-500 leading-tight uppercase tracking-tight">
+                Restricción: Solo puedes visualizar variables de un mismo tipo ({availableMetrics.find(m => m.key === selectedMetrics[0])?.unit || 'N/A'}) simultáneamente.
+              </p>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* ÁREA DE GRÁFICA */}
@@ -257,14 +338,6 @@ export default function PlantDetail() {
               {branding.logoUrl && (
                 <img src={branding.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
               )}
-              <div className="flex flex-col">
-                <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-[10px] font-bold text-brand-textSecondary hover:text-brand-accent transition-all uppercase italic">
-                  <ArrowLeft size={12} /> Dashboard
-                </button>
-                <h1 className="text-2xl font-black uppercase italic tracking-tighter text-brand-textPrimary">
-                  {branding.name ? branding.name : <><span className="text-brand-textPrimary">System</span> <span className="text-brand-accent">{plantId}</span></>}
-                </h1>
-              </div>
             </div>
           </div>
 
@@ -299,11 +372,21 @@ export default function PlantDetail() {
                 />
 
                 <button
-                  onClick={handleDownload}
-                  className="p-2 bg-brand-secondary hover:bg-brand-accent hover:text-black text-brand-textSecondary rounded-lg transition-colors border border-brand-border"
+                  onClick={() => handleDownload('csv')}
+                  className="p-2 bg-brand-secondary hover:bg-brand-accentSec hover:text-white text-brand-textSecondary rounded-lg transition-all border border-brand-border flex items-center gap-1.5 shadow-sm active:scale-95"
                   title="Download CSV"
                 >
-                  <Download size={16} />
+                  <Download size={14} />
+                  <span className="text-[8px] font-black uppercase tracking-tighter">CSV</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownload('xlsx')}
+                  className="p-2 bg-brand-secondary hover:bg-emerald-600 hover:text-white text-brand-textSecondary rounded-lg transition-all border border-brand-border flex items-center gap-1.5 shadow-sm active:scale-95"
+                  title="Download Excel"
+                >
+                  <FileSpreadsheet size={14} />
+                  <span className="text-[8px] font-black uppercase tracking-tighter">Excel</span>
                 </button>
               </div>
             )}
@@ -337,13 +420,44 @@ export default function PlantDetail() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} opacity={0.3} />
-                <XAxis dataKey="time" stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} dy={10} />
+                <XAxis
+                  dataKey="time"
+                  stroke="var(--text-secondary)"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  dy={10}
+                  tickFormatter={(str) => {
+                    try {
+                      const date = new Date(str);
+                      if (isNaN(date.getTime())) return str;
+                      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    } catch (e) { return str; }
+                  }}
+                />
                 <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} />
 
                 <Tooltip
                   contentStyle={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '16px' }}
-                  labelStyle={{ color: 'var(--text-primary)', fontWeight: '900', fontSize: '11px', textTransform: 'uppercase', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '8px' }}
-                  itemStyle={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}
+                  labelStyle={{ color: 'var(--text-primary)', fontWeight: '900', fontSize: '11px', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px', marginBottom: '8px' }}
+                  itemStyle={{ fontSize: '10px', fontWeight: '700' }}
+                  labelFormatter={(str) => {
+                    try {
+                      const date = new Date(str);
+                      if (isNaN(date.getTime())) return str;
+                      return date.toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      });
+                    } catch (e) { return str; }
+                  }}
+                  formatter={(value, name) => {
+                    const metric = availableMetrics.find(m => m.key === name);
+                    return [`${value} ${metric?.unit || ''}`, name];
+                  }}
                 />
 
                 <Legend verticalAlign="top" align="right" content={(props) => <CustomLegend {...props} availableMetrics={availableMetrics} />} />
@@ -372,7 +486,7 @@ export default function PlantDetail() {
   );
 }
 
-function RecursiveTree({ data, toggleMetric, selectedMetrics, expandedNodes, setExpandedNodes, availableMetrics, path = "" }) {
+function RecursiveTree({ data, toggleMetric, selectedMetrics, expandedNodes, setExpandedNodes, availableMetrics, currentValues = {}, path = "" }) {
   return (
     <div className="space-y-1">
       {Object.entries(data).map(([key, value]) => {
@@ -383,20 +497,36 @@ function RecursiveTree({ data, toggleMetric, selectedMetrics, expandedNodes, set
           <div key={key} className="select-none">
             <div onClick={() => setExpandedNodes(prev => ({ ...prev, [currentPath]: !prev[currentPath] }))} className={`flex items-center gap-2 p-2 rounded-xl cursor-pointer transition-all ${isOpen ? 'bg-brand-sidebar' : 'hover:bg-brand-sidebar/50'}`}>
               {isOpen ? <ChevronDown size={14} className="text-brand-accent" /> : <ChevronRight size={14} className="text-brand-textSecondary" />}
-              <span className={`text-[10px] font-black uppercase tracking-widest ${isOpen ? 'text-brand-textPrimary' : 'text-brand-textSecondary'}`}>{key}</span>
+              <span className={`text-[10px] font-black tracking-widest ${isOpen ? 'text-brand-textPrimary' : 'text-brand-textSecondary'}`}>{key}</span>
             </div>
             {isOpen && (
               <div className="ml-4 mt-2 border-l border-brand-border/50 pl-4 space-y-2">
-                <RecursiveTree data={value} toggleMetric={toggleMetric} selectedMetrics={selectedMetrics} expandedNodes={expandedNodes} setExpandedNodes={setExpandedNodes} availableMetrics={availableMetrics} path={currentPath} />
+                <RecursiveTree data={value} toggleMetric={toggleMetric} selectedMetrics={selectedMetrics} expandedNodes={expandedNodes} setExpandedNodes={setExpandedNodes} availableMetrics={availableMetrics} currentValues={currentValues} path={currentPath} />
                 {value._metrics?.map(m => {
                   const active = selectedMetrics.includes(m.key);
+                  const currentValue = currentValues[m.key];
+                  const displayValue = currentValue !== undefined
+                    ? (typeof currentValue === 'number' ? currentValue.toFixed(2) : currentValue)
+                    : '--';
                   return (
                     <button key={m.key} onClick={() => toggleMetric(m.key)} className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 ${active ? 'bg-brand-sidebar border-brand-accent shadow-brand-glow' : 'bg-transparent border-brand-border text-brand-textSecondary hover:border-brand-textPrimary'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${active ? 'text-brand-textPrimary' : ''}`}>{m.label}</span>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} />
+                        <div className="flex flex-col items-start min-w-0 flex-1">
+                          <span className={`text-[10px] font-black tracking-widest ${active ? 'text-brand-textPrimary' : ''} truncate w-full`}>{m.label}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[11px] font-mono font-bold ${active ? 'text-brand-accent' : 'text-brand-textSecondary'}`}>
+                              {displayValue}
+                            </span>
+                            {m.unit && (
+                              <span className="text-[8px] font-black bg-brand-border/30 text-brand-textSecondary px-1.5 py-0.5 rounded-md tracking-tighter">
+                                {m.unit}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      {active && <div className="w-4 h-4 rounded-sm border flex items-center justify-center" style={{ borderColor: m.color }}><div className="w-2 h-2" style={{ backgroundColor: m.color }} /></div>}
+                      {active && <div className="w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0" style={{ borderColor: m.color }}><div className="w-2 h-2" style={{ backgroundColor: m.color }} /></div>}
                     </button>
                   );
                 })}
@@ -416,7 +546,7 @@ const CustomLegend = ({ payload, availableMetrics }) => (
       return (
         <div key={index} className="flex items-center gap-2">
           <div className="w-3 h-[2px]" style={{ backgroundColor: entry.color }} />
-          <span className="text-[9px] font-black text-brand-textSecondary uppercase tracking-widest">{metric?.path.split('/')[0]} / {entry.value}</span>
+          <span className="text-[9px] font-black text-brand-textSecondary tracking-widest">{metric?.path.split('/')[0]} / {entry.value}</span>
         </div>
       );
     })}

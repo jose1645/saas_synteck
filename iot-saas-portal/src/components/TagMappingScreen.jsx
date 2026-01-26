@@ -2,10 +2,71 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Variable, Loader2, Radar, X, Edit3,
   Activity, ChevronRight, Database, FolderTree, ChevronDown,
-  Settings2, ToggleLeft, CheckCircle2, Tag
+  Settings2, ToggleLeft, CheckCircle2, Tag, Zap, Droplets,
+  Gauge, Thermometer, CloudRain, Cpu, Box, HelpCircle
 } from "lucide-react";
 import { authService } from "../services/authService";
 import { deviceService } from "../services/deviceService"; // Importamos el servicio
+
+// --- CONSTANTES: CATEGORÍAS POR FENÓMENO FÍSICO ---
+const PHENOMENA_CATEGORIES = [
+  {
+    id: 'electricity',
+    label: 'Electricidad',
+    icon: Zap,
+    color: 'text-amber-500',
+    bg: 'bg-amber-50',
+    units: ['KwH', 'V', 'A', 'W', 'PF', 'Hz']
+  },
+  {
+    id: 'fluids',
+    label: 'Fluidos',
+    icon: Droplets,
+    color: 'text-blue-500',
+    bg: 'bg-blue-50',
+    units: ['m³/h', 'L/min', 'm³', 'L']
+  },
+  {
+    id: 'pressure',
+    label: 'Presión',
+    icon: Gauge,
+    color: 'text-purple-500',
+    bg: 'bg-purple-50',
+    units: ['PSI', 'Bar', 'Pa', 'kPa']
+  },
+  {
+    id: 'temp',
+    label: 'Temperatura',
+    icon: Thermometer,
+    color: 'text-red-500',
+    bg: 'bg-red-50',
+    units: ['°C', '°F', 'K']
+  },
+  {
+    id: 'humidity',
+    label: 'Humedad',
+    icon: CloudRain,
+    color: 'text-sky-500',
+    bg: 'bg-sky-50',
+    units: ['% HR']
+  },
+  {
+    id: 'mechanics',
+    label: 'Mecánica',
+    icon: Cpu,
+    color: 'text-slate-600',
+    bg: 'bg-slate-100',
+    units: ['RPM', 'Hz', 'm/s²']
+  },
+  {
+    id: 'others',
+    label: 'Otros',
+    icon: Box,
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-50',
+    units: ['%', 'ppm', 'count', 'unit']
+  }
+];
 
 // --- UTILIDAD: CONSTRUYE EL ÁRBOL Y APLICA PODA RECURSIVA ---
 const buildTree = (flatTree, registeredTags) => {
@@ -160,7 +221,7 @@ export default function TagMappingScreen({ onBack, device }) {
   const handleStartScan = () => {
     setIsScanning(true);
     const currentUser = authService.getCurrentUser();
-    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/monitor/ws';
+    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/monitor/ws';
     const wsUrl = `${wsBase}/${currentUser?.partner_id}/${device?.client_id}/${device?.plant_id}/${device?.aws_iot_uid}`;
     socketRef.current = new WebSocket(wsUrl);
     socketRef.current.onmessage = (event) => {
@@ -323,9 +384,20 @@ export default function TagMappingScreen({ onBack, device }) {
 
 function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
   const [form, setForm] = useState({ name: "", display_name: "", unit: "", path: "", type: "numeric", min: "", max: "", label_0: "OFF", label_1: "ON" });
+  const [activeCategory, setActiveCategory] = useState(null);
 
   useEffect(() => {
-    if (isOpen) setForm(initialData || { name: "", display_name: "", unit: "", path: "", type: "numeric", min: "", max: "", label_0: "OFF", label_1: "ON" });
+    if (isOpen) {
+      setForm(initialData || { name: "", display_name: "", unit: "", path: "", type: "numeric", min: "", max: "", label_0: "OFF", label_1: "ON" });
+
+      // Auto-detectar categoría si ya tiene unidad
+      if (initialData?.unit) {
+        const cat = PHENOMENA_CATEGORIES.find(c => c.units.includes(initialData.unit));
+        if (cat) setActiveCategory(cat.id);
+      } else {
+        setActiveCategory(null);
+      }
+    }
   }, [isOpen, initialData]);
 
   if (!isOpen) return null;
@@ -333,8 +405,8 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70]" onClick={onClose} />
-      <div className="fixed top-4 right-4 bottom-4 w-[420px] bg-white rounded-[45px] shadow-2xl z-[80] flex flex-col border border-slate-100 animate-in slide-in-from-right duration-500 overflow-hidden">
-        <div className="p-10 border-b bg-slate-50/50 flex justify-between items-center">
+      <div className="fixed top-4 right-4 bottom-4 w-[480px] bg-white rounded-[45px] shadow-2xl z-[80] flex flex-col border border-slate-100 animate-in slide-in-from-right duration-500 overflow-hidden">
+        <div className="p-8 border-b bg-slate-50/50 flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tighter">Parametrización</h2>
             <p className="text-[10px] text-blue-600 font-black uppercase mt-1 bg-blue-50 inline-block px-3 py-1 rounded-full border border-blue-100 italic">Rama: {form.path}</p>
@@ -342,52 +414,171 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
           {isLoading && <Loader2 className="animate-spin text-blue-600" size={24} />}
         </div>
 
-        <div className="p-10 flex-1 space-y-6 overflow-y-auto custom-scrollbar">
+        <div className="p-8 flex-1 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* TIPO DE VARIABLE */}
           <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Interpretación</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button disabled={isLoading} onClick={() => setForm({ ...form, type: 'numeric' })} className={`py-3 rounded-xl border-2 flex items-center justify-center gap-2 font-black text-[10px] uppercase transition-all ${form.type === 'numeric' ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><Settings2 size={14} /> Numérica</button>
-              <button disabled={isLoading} onClick={() => setForm({ ...form, type: 'boolean' })} className={`py-3 rounded-xl border-2 flex items-center justify-center gap-2 font-black text-[10px] uppercase transition-all ${form.type === 'boolean' ? 'border-blue-600 bg-blue-50 text-blue-600' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}><ToggleLeft size={14} /> Booleana</button>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <ToggleLeft size={12} /> Interpretación de Datos
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                disabled={isLoading}
+                onClick={() => setForm({ ...form, type: 'numeric' })}
+                className={`py-4 rounded-2xl border-2 flex flex-col items-center gap-2 font-black text-[10px] uppercase transition-all ${form.type === 'numeric' ? 'border-blue-600 bg-blue-50 text-blue-600 shadow-lg shadow-blue-100' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}
+              >
+                <Activity size={20} />
+                Numérica
+              </button>
+              <button
+                disabled={isLoading}
+                onClick={() => setForm({ ...form, type: 'boolean' })}
+                className={`py-4 rounded-2xl border-2 flex flex-col items-center gap-2 font-black text-[10px] uppercase transition-all ${form.type === 'boolean' ? 'border-blue-600 bg-blue-50 text-blue-600 shadow-lg shadow-blue-100' : 'border-slate-100 text-slate-400 hover:bg-slate-50'}`}
+              >
+                <ToggleLeft size={20} />
+                Booleana
+              </button>
             </div>
           </div>
 
+          {/* NOMBRE DE VISUALIZACIÓN */}
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Tag size={12} /> Nombre Amigable (Dashboard)</label>
-            <input disabled={isLoading} type="text" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none transition-all shadow-inner" value={form.display_name} onChange={e => setForm({ ...form, display_name: e.target.value })} placeholder="Ej. Presión de Caldera" />
-          </div>
-
-          <div className="space-y-2 opacity-60">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Key MQTT Original</label>
-            <div className="w-full bg-slate-100 rounded-2xl px-6 py-4 text-sm font-mono font-bold text-slate-500 border border-slate-200">{form.name}</div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Tag size={12} /> Etiqueta en Dashboard
+            </label>
+            <input
+              disabled={isLoading}
+              type="text"
+              className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none transition-all shadow-inner"
+              value={form.display_name}
+              onChange={e => setForm({ ...form, display_name: e.target.value })}
+              placeholder="Ej. Consumo Total Máquina 1"
+            />
           </div>
 
           {form.type === 'numeric' ? (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unidad de Medida</label>
-                <input disabled={isLoading} type="text" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Ej. Kwh, PSI, °C" />
+              {/* SELECTOR DE FENÓMENO FÍSICO */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Radar size={12} /> Fenómeno Físico & Unidad
+                </label>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {PHENOMENA_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        setActiveCategory(cat.id);
+                        setForm({ ...form, unit: cat.units[0] });
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${activeCategory === cat.id
+                          ? `border-blue-600 ${cat.bg} scale-105 shadow-md`
+                          : 'border-slate-50 hover:border-slate-200'
+                        }`}
+                    >
+                      <cat.icon size={20} className={activeCategory === cat.id ? 'text-blue-600' : 'text-slate-400'} />
+                      <span className={`text-[8px] font-black uppercase mt-1 tracking-tighter ${activeCategory === cat.id ? 'text-blue-700' : 'text-slate-400'}`}>
+                        {cat.label}
+                      </span>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setActiveCategory('custom');
+                    }}
+                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${activeCategory === 'custom'
+                        ? 'border-blue-600 bg-blue-50 scale-105'
+                        : 'border-slate-50 hover:border-slate-200'
+                      }`}
+                  >
+                    <Settings2 size={20} className={activeCategory === 'custom' ? 'text-blue-600' : 'text-slate-400'} />
+                    <span className={`text-[8px] font-black uppercase mt-1 tracking-tighter ${activeCategory === 'custom' ? 'text-blue-700' : 'text-slate-400'}`}>
+                      Custom
+                    </span>
+                  </button>
+                </div>
+
+                {/* UNIDADES SUGERIDAS */}
+                {activeCategory && activeCategory !== 'custom' && (
+                  <div className="p-4 bg-slate-50 rounded-[25px] border border-slate-100 flex flex-wrap gap-2 animate-in zoom-in-95 duration-200">
+                    {PHENOMENA_CATEGORIES.find(c => c.id === activeCategory).units.map(u => (
+                      <button
+                        key={u}
+                        onClick={() => setForm({ ...form, unit: u })}
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${form.unit === u
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+                          }`}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* INPUT UNIT (CUSTOM O FINAL) */}
+                <div className="relative group">
+                  <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Database size={16} />
+                  </div>
+                  <input
+                    disabled={isLoading}
+                    type="text"
+                    className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl pl-14 pr-6 py-4 text-sm font-bold outline-none shadow-inner"
+                    value={form.unit}
+                    onChange={e => {
+                      setForm({ ...form, unit: e.target.value });
+                      const cat = PHENOMENA_CATEGORIES.find(c => c.units.includes(e.target.value));
+                      if (cat) setActiveCategory(cat.id);
+                      else setActiveCategory('custom');
+                    }}
+                    placeholder="Unidad de medida..."
+                  />
+                </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Límite Mínimo</label><input disabled={isLoading} type="number" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.min} onChange={e => setForm({ ...form, min: e.target.value })} placeholder="0" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Límite Máximo</label><input disabled={isLoading} type="number" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.max} onChange={e => setForm({ ...form, max: e.target.value })} placeholder="100" /></div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Límite Mínimo</label>
+                  <input disabled={isLoading} type="number" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.min} onChange={e => setForm({ ...form, min: e.target.value })} placeholder="0" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Límite Máximo</label>
+                  <input disabled={isLoading} type="number" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.max} onChange={e => setForm({ ...form, max: e.target.value })} placeholder="100" />
+                </div>
               </div>
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><label className="text-[10px] font-black text-red-500 uppercase tracking-widest">Estado para 0 (False)</label><input disabled={isLoading} type="text" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-red-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.label_0} onChange={e => setForm({ ...form, label_0: e.target.value })} /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black text-green-600 uppercase tracking-widest">Estado para 1 (True)</label><input disabled={isLoading} type="text" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-green-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.label_1} onChange={e => setForm({ ...form, label_1: e.target.value })} /></div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-red-500 uppercase tracking-widest">Estado para 0 (False)</label>
+                  <input disabled={isLoading} type="text" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-red-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.label_0} onChange={e => setForm({ ...form, label_0: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-green-600 uppercase tracking-widest">Estado para 1 (True)</label>
+                  <input disabled={isLoading} type="text" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-green-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.label_1} onChange={e => setForm({ ...form, label_1: e.target.value })} />
+                </div>
               </div>
             </div>
           )}
+
+          <div className="pt-4 opacity-40">
+            <div className="p-4 bg-slate-100 rounded-2xl border border-dashed border-slate-300">
+              <p className="text-[9px] font-black text-slate-500 uppercase flex items-center gap-2 mb-1"><Settings2 size={12} /> MQTT Hook (Backend)</p>
+              <code className="text-[10px] font-mono font-bold text-slate-600">{form.name}</code>
+            </div>
+          </div>
         </div>
 
-        <div className="p-10 border-t flex gap-4 bg-slate-50">
-          <button disabled={isLoading} onClick={onClose} className="flex-1 font-black text-[10px] uppercase text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
-          <button disabled={isLoading} onClick={() => onSave(form)} className="flex-[2] py-5 bg-blue-600 text-white rounded-[25px] font-black text-xs uppercase shadow-xl hover:bg-blue-700 active:scale-95 transition-all flex justify-center items-center gap-2">
-            {isLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-            Guardar en Base de Datos
-          </button>
+        <div className="p-8 border-t flex flex-col gap-4 bg-slate-50">
+          <div className="flex gap-4">
+            <button disabled={isLoading} onClick={onClose} className="flex-1 font-black text-[10px] uppercase text-slate-400 hover:text-slate-600 transition-colors">Cancelar</button>
+            <button disabled={isLoading} onClick={() => onSave(form)} className="flex-[2] py-5 bg-blue-600 text-white rounded-[25px] font-black text-xs uppercase shadow-xl hover:bg-blue-700 active:scale-95 transition-all flex justify-center items-center gap-2">
+              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              Vincular Variable
+            </button>
+          </div>
         </div>
       </div>
     </>

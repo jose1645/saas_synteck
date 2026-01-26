@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ChevronLeft, Plus, Box, Cpu, MapPin, ArrowRight, Loader2, AlertCircle, 
+import {
+  ChevronLeft, Plus, Box, Cpu, MapPin, ArrowRight, Loader2, AlertCircle,
   Users, Factory, ShieldCheck, Mail, Edit2, Trash2, Database
 } from 'lucide-react';
 import CreateUserModal from '../../components/CreateUserModal';
@@ -33,7 +33,7 @@ const ClientDetail = () => {
   const [isViewDevicesOpen, setIsViewDevicesOpen] = useState(false);
   const [selectedPlant, setSelectedPlant] = useState(null);
   const [devicesToView, setDevicesToView] = useState([]);
-const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   /* =========================
       Sincronización de Datos (Infraestructura)
   ========================= */
@@ -103,22 +103,22 @@ const [isUserModalOpen, setIsUserModalOpen] = useState(false);
           </p>
         </div>
         <div className="flex gap-2">
-            <div className="bg-slate-100 p-3 rounded-2xl text-center min-w-[100px]">
-                <p className="text-[10px] font-black text-slate-400 uppercase">Plantas</p>
-                <p className="text-xl font-black text-slate-800">{plants.length}</p>
-            </div>
+          <div className="bg-slate-100 p-3 rounded-2xl text-center min-w-[100px]">
+            <p className="text-[10px] font-black text-slate-400 uppercase">Plantas</p>
+            <p className="text-xl font-black text-slate-800">{plants.length}</p>
+          </div>
         </div>
       </div>
 
       {/* Navegación por Pestañas */}
       <div className="flex gap-8 mb-8 border-b border-slate-100">
-        <button 
+        <button
           onClick={() => setActiveTab('infrastructure')}
           className={`pb-4 text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all border-b-2 ${activeTab === 'infrastructure' ? 'text-blue-600 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
         >
           <Factory size={18} /> Infraestructura
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('users')}
           className={`pb-4 text-sm font-black uppercase tracking-widest flex items-center gap-2 transition-all border-b-2 ${activeTab === 'users' ? 'text-blue-600 border-blue-600' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
         >
@@ -135,16 +135,26 @@ const [isUserModalOpen, setIsUserModalOpen] = useState(false);
               <Plus size={20} /> Registrar Planta
             </button>
           </div>
-          
+
           <div className="grid grid-cols-1 gap-6">
             {plants.length === 0 ? (
               <EmptyState icon={<Box size={60} />} title="Sin plantas registradas" subtitle="Registre una planta para comenzar a instalar dispositivos IoT." />
             ) : (
               plants.map(plant => (
-                <PlantCard 
-                  key={plant.id} 
-                  plant={plant} 
-                  onView={() => { setSelectedPlant(plant); setIsViewDevicesOpen(true); }}
+                <PlantCard
+                  key={plant.id}
+                  plant={plant}
+                  onView={async () => {
+                    setSelectedPlant(plant);
+                    try {
+                      const devicesRes = await plantService.getDevicesByPlant(plant.id);
+                      setDevicesToView(devicesRes.data || []);
+                      setIsViewDevicesOpen(true);
+                    } catch (error) {
+                      console.error("Error loading devices:", error);
+                      alert("❌ Error al cargar el inventario de dispositivos");
+                    }
+                  }}
                   onAdd={() => { setSelectedPlant(plant); setIsDeviceModalOpen(true); }}
                 />
               ))
@@ -159,12 +169,12 @@ const [isUserModalOpen, setIsUserModalOpen] = useState(false);
               <h2 className="text-xl font-bold text-slate-800">Accesos Autorizados</h2>
               <p className="text-sm text-slate-500">Cuentas con acceso al panel de telemetría de este cliente.</p>
             </div>
-        <button 
-  onClick={() => setIsUserModalOpen(true)}
-  className="bg-blue-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold hover:bg-blue-700 transition-all shadow-xl active:scale-95"
->
-  <Plus size={20} /> Crear Nuevo Acceso
-</button>
+            <button
+              onClick={() => setIsUserModalOpen(true)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-bold hover:bg-blue-700 transition-all shadow-xl active:scale-95"
+            >
+              <Plus size={20} /> Crear Nuevo Acceso
+            </button>
           </div>
 
           <div className="bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm">
@@ -194,10 +204,10 @@ const [isUserModalOpen, setIsUserModalOpen] = useState(false);
                 ) : (
                   <tr>
                     <td colSpan="4" className="p-20">
-                      <EmptyState 
-                        icon={<ShieldCheck size={48} />} 
-                        title="No hay usuarios" 
-                        subtitle="Este cliente no tiene accesos creados. Cree uno para que el cliente pueda entrar a su dashboard." 
+                      <EmptyState
+                        icon={<ShieldCheck size={48} />}
+                        title="No hay usuarios"
+                        subtitle="Este cliente no tiene accesos creados. Cree uno para que el cliente pueda entrar a su dashboard."
                       />
                     </td>
                   </tr>
@@ -209,20 +219,20 @@ const [isUserModalOpen, setIsUserModalOpen] = useState(false);
       )}
 
       {/* Modales */}
-      <CreateUserModal 
-  isOpen={isUserModalOpen}
-  onClose={() => setIsUserModalOpen(false)}
-  clientId={clientId}
-  clientName={clientInfo?.name}
-  onSuccess={fetchUsers} // Esta función recarga la lista automáticamente
-/>
-<PlantModal 
-  isOpen={isPlantModalOpen} 
-  onClose={() => setIsPlantModalOpen(false)} 
-  onSubmit={fetchData} // Al terminar, llama a fetchData para recargar la lista
-  clientName={clientInfo?.name} 
-  clientId={clientId} // <--- IMPORTANTE: Pasar el ID de la URL
-/>      <DeviceModal isOpen={isDeviceModalOpen} onClose={() => setIsDeviceModalOpen(false)} plantId={selectedPlant?.id} onSuccess={fetchData} />
+      <CreateUserModal
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        clientId={clientId}
+        clientName={clientInfo?.name}
+        onSuccess={fetchUsers} // Esta función recarga la lista automáticamente
+      />
+      <PlantModal
+        isOpen={isPlantModalOpen}
+        onClose={() => setIsPlantModalOpen(false)}
+        onSubmit={fetchData} // Al terminar, llama a fetchData para recargar la lista
+        clientName={clientInfo?.name}
+        clientId={clientId} // <--- IMPORTANTE: Pasar el ID de la URL
+      />      <DeviceModal isOpen={isDeviceModalOpen} onClose={() => setIsDeviceModalOpen(false)} plantId={selectedPlant?.id} onSuccess={fetchData} />
       <ViewDevicesModal isOpen={isViewDevicesOpen} onClose={() => setIsViewDevicesOpen(false)} devices={devicesToView} />
     </div>
   );
@@ -260,8 +270,8 @@ const UserRow = ({ user }) => (
     </td>
     <td className="p-6 text-right">
       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={14}/></button>
-        <button className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"><Trash2 size={14}/></button>
+        <button className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={14} /></button>
+        <button className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"><Trash2 size={14} /></button>
       </div>
     </td>
   </tr>

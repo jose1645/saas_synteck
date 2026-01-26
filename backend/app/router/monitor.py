@@ -6,6 +6,8 @@ from app.services.mqtt_bridge import start_mqtt_bridge
 from app.services.websocket_manager import ws_manager
 import asyncio
 
+from app.services.historian import historian
+
 router = APIRouter(prefix="/monitor", tags=["Real-time Monitoring"])
 
 # Estructura: { "device_uid": {"client": mqtt_obj, "ref_count": int, "stop_task": Task} }
@@ -19,8 +21,14 @@ async def websocket_endpoint(
 ):
     await ws_manager.connect(websocket, device_uid)
     
-    if device_uid not in active_bridges:
-        print(f"🚀 Iniciando Bridge Maestro: {device_uid}")
+    # 1. VERIFICAR SI EL HISTORIAN YA TIENE ESTE BRIDGE CORRIENDO
+    if device_uid in historian.active_bridges:
+        print(f"🔗 [Monitor] Usando bridge permanente del Historian para {device_uid}")
+        # No sumamos ref_count para evitar colisiones con la lógica de apagado,
+        # simplemente dejamos que el WS se conecte al manager.
+    
+    elif device_uid not in active_bridges:
+        print(f"🚀 Iniciando Bridge Maestro (Temporal): {device_uid}")
         
         # Búsqueda de metadata (Join profundo)
         device_info = db.query(models.Device).options(
@@ -57,6 +65,7 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, device_uid)
         
+        # 2. SOLO APAGAR SI NO ES UN BRIDGE DEL HISTORIAN
         if device_uid in active_bridges:
             active_bridges[device_uid]["ref_count"] -= 1
             
@@ -64,11 +73,10 @@ async def websocket_endpoint(
             if active_bridges[device_uid]["ref_count"] <= 0:
                 print(f"⏳ Iniciando periodo de gracia (5s) para {device_uid}...")
                 
-                # Creamos una tarea asíncrona que espere antes de matar el bridge
                 async def delayed_stop(uid):
-                    await asyncio.sleep(5) # Buffer de 5 segundos
+                    await asyncio.sleep(5) 
                     if uid in active_bridges:
-                        print(f"🛑 Tiempo agotado. Matando Bridge de {uid}")
+                        print(f"🛑 Tiempo agotado. Matando Bridge Temporal de {uid}")
                         active_bridges[uid]["client"].stop()
                         del active_bridges[uid]
 

@@ -288,3 +288,21 @@ class DeviceTag(Base):
 
     # Relación hacia el dispositivo
     device = relationship("Device", back_populates="tags")
+
+class TelemetryLog(Base):
+    """
+    Almacenamiento local de históricos (Fallback de AWS Timestream).
+    Guarda los datos de telemetría en formato JSON para flexibilidad total.
+    """
+    __tablename__ = "telemetry_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_uid = Column(String, ForeignKey("devices.aws_iot_uid"), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # Payload de telemetría aplanado
+    # Ej: {"temperatura": 25.4, "presion": 1.2}
+    data = Column(JSON, nullable=False)
+    
+    # Rama de donde viene (subtópico)
+    path = Column(String, nullable=True)

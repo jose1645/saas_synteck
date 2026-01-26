@@ -1,11 +1,11 @@
 import React from 'react';
 import { authService } from '../services/authService'; // Ajusta la ruta
-import { 
-  LayoutDashboard, 
-  Users, 
-  HardDrive, 
-  Settings, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Users,
+  HardDrive,
+  Settings,
+  LogOut,
   Activity,
   ChevronRight,
   Calculator, // Cambié EarIcon por Calculator que queda mejor para "Cotización"
@@ -13,7 +13,11 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const Sidebar = ({ user, onLogout }) => {
+const Sidebar = ({ user, onLogout, partner }) => {
+  console.log("USER:", user)
+  console.log("PARTNER:", user?.partner)
+
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -59,16 +63,15 @@ const Sidebar = ({ user, onLogout }) => {
             <button
               key={item.label}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group ${
-                isActive 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' 
+              className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group ${isActive
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
                 : 'hover:bg-slate-800 hover:text-white'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
-                <item.icon 
-                  size={18} 
-                  className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'} 
+                <item.icon
+                  size={18}
+                  className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-400'}
                 />
                 <span className="font-semibold text-sm">{item.label}</span>
               </div>
@@ -80,7 +83,7 @@ const Sidebar = ({ user, onLogout }) => {
 
       {/* Botón de Salida */}
       <div className="p-4 mt-auto border-t border-slate-800">
-        <button 
+        <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all text-slate-400 group"
         >

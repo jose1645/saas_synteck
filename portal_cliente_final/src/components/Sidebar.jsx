@@ -19,6 +19,12 @@ export default function Sidebar() {
   const { branding } = useBranding();
   const location = useLocation();
 
+  // Debug: Ver qué contiene branding
+  useEffect(() => {
+    console.log('🎨 [Sidebar] Branding data:', branding);
+    console.log('🖼️ [Sidebar] Logo URL:', branding?.logoUrl);
+  }, [branding]);
+
   useEffect(() => {
     const loadPlants = async () => {
       if (user?.client_id) {
@@ -42,13 +48,30 @@ export default function Sidebar() {
         {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 
-      <div className={`p-6 mb-4 flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+      <div className={`${isCollapsed ? 'p-4' : 'px-6 py-5'} mb-4 ${isCollapsed ? 'flex flex-col items-center gap-2' : 'flex items-center gap-4'}`}>
         {branding?.logoUrl ? (
-          <img src={branding.logoUrl} alt={branding.name} className="w-8 h-8 object-contain" />
+          <div className={`bg-brand-secondary border border-brand-border rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 ${isCollapsed ? 'w-12 h-12 p-2' : 'w-full h-14 px-4 py-2'}`}>
+            <img
+              src={branding.logoUrl}
+              alt={branding.name}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
         ) : (
-          <Zap size={28} className="text-brand-accent fill-brand-accent/10 flex-shrink-0" />
+          <div className={`bg-brand-secondary border border-brand-border rounded-xl flex items-center justify-center flex-shrink-0 ${isCollapsed ? 'w-12 h-12' : 'w-14 h-14'}`}>
+            <Zap size={32} className="text-brand-accent" />
+          </div>
         )}
-        {!isCollapsed && <span className="font-black text-brand-textPrimary tracking-tighter text-xl uppercase truncate">{branding.name || 'SYNTECK'}</span>}
+        {!isCollapsed && (
+          <div className="flex flex-col min-w-0 mt-2">
+            <span className="font-black text-brand-textPrimary tracking-tighter text-sm uppercase truncate">
+              {branding.name || 'SYNTECK'}
+            </span>
+            <span className="text-[8px] font-bold text-brand-textSecondary uppercase tracking-widest">
+              Terminal • XC290
+            </span>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 px-3 space-y-2 overflow-y-auto custom-scrollbar">

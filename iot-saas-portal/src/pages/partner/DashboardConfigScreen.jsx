@@ -160,14 +160,27 @@ export default function PlantServicesScreen() {
     if (!module) return;
 
     const newState = !module.enabled;
-    updateModuleState(id, newState);
 
     // Lógica Específica por Módulo
     if (id === 'history') {
+      // Validación 1: Cliente seleccionado
       if (!selectedClient) {
-        alert("No hay un cliente seleccionado.");
+        alert("⚠️ No hay un cliente seleccionado.");
         return;
       }
+
+      // Validación 2: Si se intenta ACTIVAR, verificar que haya dispositivos
+      if (newState === true && devices.length === 0) {
+        alert(
+          `⚠️ No se puede activar Históricos\n\n` +
+          `El cliente "${selectedClient.name}" no tiene dispositivos configurados.\n\n` +
+          `📌 Primero crea al menos un dispositivo en alguna planta de este cliente.`
+        );
+        return;
+      }
+
+      // Aplicar el cambio solo si pasó las validaciones
+      updateModuleState(id, newState);
 
       try {
         // AHORA: Llamamos al endpoint centralizado de Módulos
@@ -185,8 +198,11 @@ export default function PlantServicesScreen() {
         console.error("Error updating module setting:", error);
         // Revertir si falla
         updateModuleState(id, !newState);
-        alert("Error al actualizar la configuración en el servidor.");
+        alert("❌ Error al actualizar la configuración en el servidor.");
       }
+    } else {
+      // Para otros módulos, aplicar el cambio directamente
+      updateModuleState(id, newState);
     }
   };
 

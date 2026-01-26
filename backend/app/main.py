@@ -1,4 +1,5 @@
 import os
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv() # Load environment variables from .env file
@@ -48,7 +49,18 @@ async def startup_event():
         print("🔒 SEGURIDAD: HTTPS / Dominios Synteck")
     else:
         print("🔓 SEGURIDAD: HTTP / Localhost")
+    
+    # --- INICIAR HISTORIAN (GRABACIÓN 24/7) ---
+    from app.services.historian import historian
+    asyncio.create_task(historian.start_all_enabled())
+    
     print("="*50 + "\n")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    print("🛑 Apagando Servidor...")
+    from app.services.historian import historian
+    historian.stop_all()
 
 app.add_middleware(
     CORSMiddleware,

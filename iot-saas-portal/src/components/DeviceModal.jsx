@@ -38,12 +38,21 @@ const DeviceModal = ({ isOpen, onClose, plantName, plantId, onSuccess }) => {
   if (!isOpen) return null;
 
   const downloadFile = (filename, content) => {
-    const element = document.createElement("a");
-    const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = filename;
-    document.body.appendChild(element);
-    element.click();
+    try {
+      console.log(`📥 [Download] Descargando: ${filename}`);
+      const element = document.createElement("a");
+      const file = new Blob([content], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = filename;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+      URL.revokeObjectURL(element.href);
+      console.log(`✅ [Download] ${filename} descargado exitosamente`);
+    } catch (error) {
+      console.error(`❌ [Download] Error descargando ${filename}:`, error);
+      alert(`Error al descargar ${filename}`);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -54,12 +63,12 @@ const DeviceModal = ({ isOpen, onClose, plantName, plantId, onSuccess }) => {
     try {
       // 1. Crear el dispositivo en DB
       const { data: newDevice } = await api.post('/devices/', { ...deviceData, plant_id: plantId, modbus_config: {} });
-      
+
       setStep('provisioning');
 
       // 2. Aprovisionar en AWS IoT
       const { data: provisionData } = await api.post(`/devices/${newDevice.id}/provision`);
-      
+
       // Guardar certs (inyectando el Root CA que ya tenemos aquí)
       setCerts({
         ...provisionData,
@@ -80,7 +89,7 @@ const DeviceModal = ({ isOpen, onClose, plantName, plantId, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
-        
+
         {/* Header */}
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
@@ -143,16 +152,45 @@ const DeviceModal = ({ isOpen, onClose, plantName, plantId, onSuccess }) => {
               </p>
             </div>
 
+            {/* Botón para descargar TODO */}
+            <button
+              onClick={() => {
+                console.log('🎯 [Descarga Masiva] Iniciando descarga de todos los archivos...');
+                console.log('📊 [Certs Object]:', certs);
+                console.log('📦 [Device Data]:', deviceData);
+
+                try {
+                  downloadFile(`${deviceData.aws_iot_uid}-certificate.pem.crt`, certs.certificatePem);
+                  downloadFile(`${deviceData.aws_iot_uid}-private.pem.key`, certs.privateKey);
+                  downloadFile(`${deviceData.aws_iot_uid}-public.pem.key`, certs.publicKey);
+                  downloadFile(`AmazonRootCA1.pem`, certs.rootCA);
+                  const config = {
+                    device_uid: deviceData.aws_iot_uid,
+                    endpoint: certs.endpoint,
+                    device_name: deviceData.name
+                  };
+                  downloadFile(`${deviceData.aws_iot_uid}-config.json`, JSON.stringify(config, null, 2));
+                  console.log('✅ [Descarga Masiva] Todos los archivos procesados');
+                } catch (error) {
+                  console.error('❌ [Descarga Masiva] Error:', error);
+                  alert('Error durante la descarga masiva. Revisa la consola para más detalles.');
+                }
+              }}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95 transition-all"
+            >
+              <Download size={18} /> Descargar Todos los Archivos
+            </button>
+
             <div className="grid grid-cols-1 gap-2">
-              <button 
-                onClick={() => downloadFile(`${deviceData.aws_iot_uid}-cert.pem.crt`, certs.certificatePem)}
+              <button
+                onClick={() => downloadFile(`${deviceData.aws_iot_uid}-certificate.pem.crt`, certs.certificatePem)}
                 className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all group"
               >
                 <span className="text-[10px] font-black uppercase text-slate-600">Certificado del Activo</span>
                 <Download size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => downloadFile(`${deviceData.aws_iot_uid}-private.pem.key`, certs.privateKey)}
                 className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all group"
               >
@@ -160,11 +198,34 @@ const DeviceModal = ({ isOpen, onClose, plantName, plantId, onSuccess }) => {
                 <Download size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
               </button>
 
-              <button 
+              <button
+                onClick={() => downloadFile(`${deviceData.aws_iot_uid}-public.pem.key`, certs.publicKey)}
+                className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all group"
+              >
+                <span className="text-[10px] font-black uppercase text-slate-600">Llave Pública</span>
+                <Download size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
+              </button>
+
+              <button
                 onClick={() => downloadFile(`AmazonRootCA1.pem`, certs.rootCA)}
                 className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all group"
               >
                 <span className="text-[10px] font-black uppercase text-slate-600">Amazon Root CA</span>
+                <Download size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
+              </button>
+
+              <button
+                onClick={() => {
+                  const config = {
+                    device_uid: deviceData.aws_iot_uid,
+                    endpoint: certs.endpoint,
+                    device_name: deviceData.name
+                  };
+                  downloadFile(`${deviceData.aws_iot_uid}-config.json`, JSON.stringify(config, null, 2));
+                }}
+                className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all group"
+              >
+                <span className="text-[10px] font-black uppercase text-slate-600">Archivo de Configuración</span>
                 <Download size={16} className="text-blue-600 group-hover:scale-110 transition-transform" />
               </button>
             </div>
@@ -174,7 +235,7 @@ const DeviceModal = ({ isOpen, onClose, plantName, plantId, onSuccess }) => {
               <code className="text-[10px] text-blue-600 font-mono break-all">{certs.endpoint}</code>
             </div>
 
-            <button 
+            <button
               onClick={onClose}
               className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl uppercase text-[10px] tracking-widest mt-4"
             >

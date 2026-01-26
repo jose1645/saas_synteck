@@ -7,16 +7,16 @@ import random
 
 # --- CONFIGURACIÓN DE CONEXIÓN ---
 ENDPOINT = "a1uw1qi4z3nyi4-ats.iot.us-east-1.amazonaws.com" 
-THING_NAME = "SN-FN1OYGQ7W" 
+THING_NAME = "SN-NZHSUGHPB" 
 
-BASE_PATH = r"C:\Users\User\OneDrive\Desktop\SAAS_SYNTECK\backend\test"
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 CA_PATH = os.path.join(BASE_PATH, "AmazonRootCA1.pem") 
 CERT_PATH = os.path.join(BASE_PATH, f"{THING_NAME}-cert.pem.crt")
 KEY_PATH = os.path.join(BASE_PATH, f"{THING_NAME}-private.pem.key")
 
 # --- JERARQUÍA BASE (FIJA) ---
-PARTNER = "SYNTECK"
-CLIENT = "empresa1"
+PARTNER = "inmapro"
+CLIENT = "corporativo1"
 PLANT = "planta1" 
 BASE_TOPIC = f"{PARTNER}/{CLIENT}/{PLANT}/{THING_NAME}"
 
