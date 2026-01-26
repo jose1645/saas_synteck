@@ -1,0 +1,38 @@
+/* src/index.css */
+
+/* Reset básico para que el layout ocupe toda la pantalla */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #f8f9fa; /* Un gris muy claro de fondo */
+}
+
+/* Estilo para que el sidebar sea oscuro y elegante */
+.sidebar-nav {
+  min-height: 100vh;
+  background-color: #212529;
+}
+
+.sidebar-link {
+  color: #adb5bd;
+  text-decoration: none;
+  padding: 10px 20px;
+  display: block;
+  transition: 0.2s;
+}
+
+.sidebar-link:hover {
+  color: #fff;
+  background-color: #343a40;
+}
+
+.sidebar-link.active {
+  color: #fff;
+  background-color: #0d6efd; /* Azul de Bootstrap */
+}
+
+/* Espaciado para el contenido principal */
+main {
+  background-color: #f8f9fa;
+}

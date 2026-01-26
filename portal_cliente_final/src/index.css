@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --color-industrial-950: #05070a;
+  --color-industrial-900: #0b0f1a;
+  --color-industrial-800: #161d2f;
+  --color-industrial-500: #00f2ff;
+}
+
+/* Rejilla de fondo para dar sensación de precisión */
+.grid-stack-visual-grid {
+  background-image:
+    linear-gradient(to right, rgba(22, 29, 47, 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(22, 29, 47, 0.5) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  /* Ajusta al tamaño de tus celdas */
+}
+
+/* Los "Tiliches" (Módulos) dentro del Rack */
+.grid-stack-item-content {
+  background: rgba(11, 15, 26, 0.95) !important;
+  border: 1px solid #161d2f !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(0, 242, 255, 0.02);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Sombra de previsualización (Snap) al arrastrar */
+.grid-stack-placeholder>.placeholder-content {
+  background: rgba(0, 242, 255, 0.05) !important;
+  border: 2px dashed rgba(0, 242, 255, 0.4) !important;
+  border-radius: 12px !important;
+  margin: 10px !important;
+}
+
+/* Resaltado cuando se mueve */
+.grid-stack-item.ui-draggable-dragging .grid-stack-item-content {
+  border: 1px solid #00f2ff !important;
+  box-shadow: 0 0 30px rgba(0, 242, 255, 0.15) !important;
+  opacity: 0.9;
+}

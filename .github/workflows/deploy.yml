@@ -1,0 +1,62 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: 34.225.67.199
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            PROJECT_DIR="saas_synteck"
+
+            if [ ! -d "$PROJECT_DIR" ]; then
+              echo "Clonando por primera vez..."
+              git clone git@github.com:jose1645/saas_synteck.git
+            fi
+
+            cd "$PROJECT_DIR"
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            git fetch origin main
+            git reset --hard origin/main  # Esto borra cualquier cambio local y fuerza la actualización
+            git clean -fd                # Esto borra archivos nuevos que no estén en el repo
+
+            echo "--- INICIANDO LIMPIEZA ---"
+            # 1. Detener todos los servicios actuales
+            docker compose down --remove-orphans
+
+            # 2. Eliminar contenedores, imágenes y redes que no se estén usando (Limpieza profunda)
+            # Esto libera el espacio de las capas de imágenes viejas
+            docker system prune -f
+            
+            # 3. Eliminar volúmenes huérfanos (Opcional: solo si no te importa borrar datos temporales)
+            # docker volume prune -f
+
+            echo "--- RECONSTRUYENDO SERVICIOS ---"
+            # Construir secuencialmente para no saturar la RAM de la t2.micro
+            # Usamos --no-cache para asegurar que todo sea nuevo
+            docker compose build --no-cache api_backend
+            docker compose build --no-cache partner_portal
+            docker compose build --no-cache client_portal
+            docker compose build --no-cache superadmin_portal
+
+            echo "--- LEVANTANDO SISTEMA ---"
+            # 4. Levantar todo el stack corregido con la nueva red
+            docker compose up -d
+
+            # Verificación rápida del estado
+            docker ps
+            
+            # Limpieza final de caché de construcción
+            docker builder prune -f
+            docker exec saas_api python -m app.seed

@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # --- PROXY INVERSO (Nginx) ---
+  nginx_proxy:
+    image: nginx:alpine
+    container_name: saas_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/lib/letsencrypt:/var/lib/letsencrypt:ro
+    depends_on:
+      - partner_portal
+      - client_portal
+      - superadmin_portal
+      - api_backend
+    networks:
+      - saas_network
+
+  # --- BASES DE DATOS ---
+  postgres_db:
+    image: postgres:15
+    container_name: saas_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin_saas
+      POSTGRES_PASSWORD: Cambialo123!
+      POSTGRES_DB: saas_core
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - saas_network
+
+  influx_db:
+    image: influxdb:2.7
+    container_name: saas_influx
+    restart: always
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=Cambialo123!
+      - DOCKER_INFLUXDB_INIT_ORG=mi_empresa
+      - DOCKER_INFLUXDB_INIT_BUCKET=telemetria
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - saas_network
+
+  # --- BACKEND ---
+  api_backend:
+    build: ./backend
+    container_name: saas_api
+    restart: always
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - postgres_db
+      - influx_db
+    networks:
+      - saas_network
+
+  # --- FRONTENDS (Indentación Corregida) ---
+  partner_portal:
+    build:
+      context: ./iot-saas-portal
+      args:
+        - VITE_API_URL=https://integradores.synteck.org/api
+    container_name: saas_ui_partner
+    restart: always
+    networks:
+      - saas_network
+
+  client_portal:
+    build:
+      context: ./portal_cliente_final
+      args:
+        - VITE_API_URL=https://portal.synteck.org/api
+    container_name: saas_ui_client
+    restart: always
+    networks:
+      - saas_network
+
+  superadmin_portal:
+    build:
+      context: ./superadmin-portal
+      args:
+        - VITE_API_URL=https://admin.synteck.org/api
+  
+    container_name: saas_ui_superadmin
+    restart: always
+    networks:
+      - saas_network
+
+networks:
+  saas_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  influxdb_data:

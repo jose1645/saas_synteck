@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+/* Esto elimina los márgenes extra y asegura el fondo oscuro en toda la app */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #05070a; /* industrial-950 */
+  color: white;
+  overflow: hidden; /* Evita scrolls dobles extraños */
+}

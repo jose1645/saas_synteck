@@ -1,0 +1,28 @@
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Node / Frontend ---
+node_modules/
+dist/
+build/
+
+# --- Env ---
+.env
+.env.*
+
+# --- OS / IDE ---
+*.log
+*.lnk
+desktop.ini
+.vscode/
+.idea/
+
+# --- Media / basura ---
+*.mp4
+*.zip
+*.rar
+*.psd
