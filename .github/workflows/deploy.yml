@@ -65,19 +65,19 @@ jobs:
               git clone git@github.com:jose1645/saas_synteck.git
             fi
             
-            # --- OPTIMIZACIÓN DE MEMORIA (SWAP) ---
-            # Las t2.micro tienen 1GB de RAM. Nginx + Python + Postgres + Builds de React = OOM (Error 137).
-            # Creamos 2GB de Swap si no existe.
-            if [ $(swapon --show | wc -l) -eq 0 ]; then
-                echo "--- 💾 CREANDO SWAP (2GB) PARA EVITAR OOM ---"
-                sudo fallocate -l 2G /swapfile
-                sudo chmod 600 /swapfile
-                sudo mkswap /swapfile
-                sudo swapon /swapfile
-                echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-                echo "✅ Swap creado y activado."
+            # --- OPTIMIZACIÓN DE DISCO (ELIMINAR SWAP) ---
+            # Tienes 8GB de RAM (t3.large), no necesitas Swap.
+            # Tienes POCO DISCO (solo 379MB libres).
+            # Vamos a borrar el Swapfile para recuperar 2GB de espacio en disco.
+            if [ -f /swapfile ]; then
+                echo "--- 🗑️ BORRANDO SWAP PARA RECUPERAR DISCO ---"
+                sudo swapoff /swapfile || true
+                sudo rm -f /swapfile
+                # Quitar del fstab para que no vuelva
+                sudo sed -i '/\/swapfile/d' /etc/fstab
+                echo "✅ Swap eliminado. Espacio recuperado."
             else
-                echo "✅ Swap ya configurado."
+                echo "ℹ️ No se detectó archivo swapfile."
             fi
             
             # Mostrar espacio en disco y memoria ANTES de empezar
