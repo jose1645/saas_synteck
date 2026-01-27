@@ -584,7 +584,7 @@ export default function PlantDetail() {
         <div className={`flex flex-col h-full w-80 overflow-hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 p-6' : 'opacity-0 pointer-events-none'}`}>
           <div className="flex items-center gap-3 mb-8 border-b border-brand-border pb-4">
             <Layers size={18} className="text-brand-accent" />
-            <h2 className="text-[12px] font-black uppercase tracking-[0.2em]">Maquinaria & Tags</h2>
+            <h2 className="text-[12px] font-black uppercase tracking-[0.2em]">Maquinaria</h2>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
             <RecursiveTree
@@ -616,11 +616,14 @@ export default function PlantDetail() {
       <main className="flex-1 flex flex-col gap-6 overflow-hidden">
         <header className="flex justify-between items-center mb-4 bg-brand-secondary p-4 rounded-2xl border border-brand-border">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-4">
-              {branding.logoUrl && (
+            {branding.logoUrl && (
+              <div className="flex flex-col items-start justify-center">
                 <img src={branding.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
-              )}
-            </div>
+                <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-widest mt-1">
+                  {branding.name}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6">
