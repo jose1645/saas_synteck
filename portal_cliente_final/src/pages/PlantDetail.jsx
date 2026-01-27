@@ -131,6 +131,15 @@ export default function PlantDetail() {
   const [lastKnownValues, setLastKnownValues] = useState({});
 
   const [activeAlerts, setActiveAlerts] = useState([]);
+  const [showUnitAlert, setShowUnitAlert] = useState(false);
+
+  // Auto-cerrar alerta después de 3s
+  useEffect(() => {
+    if (showUnitAlert) {
+      const timer = setTimeout(() => setShowUnitAlert(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showUnitAlert]);
 
   // 1. CARGA DE CONFIGURACIÓN Y ASIGNACIÓN DE COLORES
   useEffect(() => {
@@ -510,7 +519,20 @@ export default function PlantDetail() {
     setIsDragging(false);
   };
 
-  // 3. HANDLER DE SELECCIÓN DE MÉTRICAS (Restringido por unidad)
+  // Helper para verificar compatibilidad de unidades
+  const areUnitsCompatible = (u1, u2) => {
+    if (u1 === u2) return true;
+    const electricalUnits = ['V', 'A', 'kW', 'kVA', 'kVAr', 'PF']; // Extendida por si acaso, pero enfocada en V/A
+    // Especificamente pedido: Voltaje y Amperaje
+    const isVoltage = (u) => ['V', 'v', 'Volts', 'VOLTS'].includes(u);
+    const isAmperage = (u) => ['A', 'a', 'Amps', 'AMPS'].includes(u);
+
+    if ((isVoltage(u1) && isAmperage(u2)) || (isAmperage(u1) && isVoltage(u2))) return true;
+
+    return false;
+  };
+
+  // 3. HANDLER DE SELECCIÓN DE MÉTRICAS (Restringido por unidad con excepción V/A)
   const handleToggleMetric = (key) => {
     const targetMetric = availableMetrics.find(m => m.key === key);
     if (!targetMetric) return;
@@ -526,13 +548,34 @@ export default function PlantDetail() {
         return [key];
       }
 
-      // Permitimos selección múltiple sin restricción de unidades
-      // if (firstSelectedMetric?.unit !== targetMetric.unit) {
-      //   setShowUnitAlert(true);
-      //   return [key];
-      // }
+      // Verificar la unidad de las métricas ya seleccionadas
+      const firstSelectedKey = prev[0];
+      const firstSelectedMetric = availableMetrics.find(m => m.key === firstSelectedKey);
 
-      return [...prev, key];
+      // Si la unidad es compatible, permitimos selección múltiple
+      if (areUnitsCompatible(firstSelectedMetric?.unit, targetMetric.unit)) {
+        return [...prev, key];
+      }
+
+      // Si NO es compatible, mostramos alerta y reemplazamos selección (o bloqueamos, aqui reemplazamos para UX fluida pero con aviso)
+      // El usuario pidió "no funcionara" -> Bloquear mejor? O solo avisar?
+      // "solo se podra cuando ... para otro caso no funcionara" -> Implica bloqueo.
+      // Pero el comportamiento original era reemplazar. Vamos a mantener "Bloqueo + Alerta" o "Reemplazo + Alerta"?
+      // Voy a hacer BLOQUEO + ALERTA para que sea estricto como pidió.
+      // Espera, la UX normal es limpiar. Si "no funcionara" significa "no grafica juntas", entonces mejor limpiamos la anterior?
+      // "quita la restriccion" (antes) -> "ponle otra vez" -> Asumo comportamiento original: Alerta y NO agrega la nueva (o reemplaza?)
+      // El código original hacía: setShowUnitAlert(true); return [key]; (REEMPLAZABA)
+      // Voy a hacer que NO se agregue si no son compatibles, para que sea "no funcionara" literal.
+      // Ojo, si retorno [key], estoy reemplazando. Si retorno prev, no hago nada.
+      // Voy a hacer: Show Alert y RETURN PREV (No hacer nada) para que sienta la restricción fuerte, 
+      // O RETURN [key] para cambiar de contexto rápido. 
+      // El código "original" que borré (ver historial) era:
+      // if (unidad distinta) { setShowUnitAlert(true); return [key]; } -> Esto REEMPLAZABA.
+      // El usuario dijo "no se puedan graficar". Si reemplazo, SE GRAFICA la nueva sola.
+      // Voy a restaurar el comportamiento REEMPLAZO porque es mas amigable, pero con la restriccion de grupo.
+
+      setShowUnitAlert(true);
+      return [key]; // Reemplaza la selección actual con la nueva
     });
   };
 
@@ -583,6 +626,18 @@ export default function PlantDetail() {
               currentValues={lastKnownValues}
             />
           </div>
+
+          {/* ALERTA DE RESTRICCIÓN DE UNIDADES */}
+          {showUnitAlert && (
+            <div className="mx-4 mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] font-bold text-amber-500 leading-tight uppercase tracking-tight">
+                  Restricción: Solo puedes visualizar variables del mismo tipo (o Voltaje + Amperaje).
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
