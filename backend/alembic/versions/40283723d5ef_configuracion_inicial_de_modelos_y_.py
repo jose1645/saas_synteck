@@ -19,26 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    conn = op.get_bind()
-    inspector = sa.inspect(conn)
-    
-    # 1. Verificar columnas en device_tags
-    dt_cols = [c['name'] for c in inspector.get_columns('device_tags')]
-    if 'hysteresis' not in dt_cols:
-        op.add_column('device_tags', sa.Column('hysteresis', sa.Float(), nullable=True, server_default='0.0'))
-    if 'alert_delay' not in dt_cols:
-        op.add_column('device_tags', sa.Column('alert_delay', sa.Integer(), nullable=True, server_default='0'))
-    
-    # 2. Verificar columnas en alerts
-    a_cols = [c['name'] for c in inspector.get_columns('alerts')]
-    if 'breach_started_at' not in a_cols:
-        op.add_column('alerts', sa.Column('breach_started_at', sa.DateTime(timezone=True), nullable=True))
+    # Usamos comandos nativos de Postgres para máxima fiabilidad en producción
+    op.execute("ALTER TABLE device_tags ADD COLUMN IF NOT EXISTS hysteresis FLOAT DEFAULT 0.0")
+    op.execute("ALTER TABLE device_tags ADD COLUMN IF NOT EXISTS alert_delay INTEGER DEFAULT 0")
+    op.execute("ALTER TABLE alerts ADD COLUMN IF NOT EXISTS breach_started_at TIMESTAMP WITH TIME ZONE")
 
 def downgrade() -> None:
-    # Downgrade manual si es necesario, ignorando errores si no existen
-    try:
-        op.drop_column('alerts', 'breach_started_at')
-        op.drop_column('device_tags', 'alert_delay')
-        op.drop_column('device_tags', 'hysteresis')
-    except:
-        pass
+    op.execute("ALTER TABLE alerts DROP COLUMN IF EXISTS breach_started_at")
+    op.execute("ALTER TABLE device_tags DROP COLUMN IF EXISTS alert_delay")
+    op.execute("ALTER TABLE device_tags DROP COLUMN IF EXISTS hysteresis")
