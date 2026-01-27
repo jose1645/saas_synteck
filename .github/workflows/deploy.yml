@@ -65,25 +65,28 @@ jobs:
               git clone git@github.com:jose1645/saas_synteck.git
             fi
             
-            # --- OPTIMIZACIÓN DE DISCO (ELIMINAR SWAP) ---
-            # Tienes 8GB de RAM (t3.large), no necesitas Swap.
-            # Tienes POCO DISCO (solo 379MB libres).
-            # Vamos a borrar el Swapfile para recuperar 2GB de espacio en disco.
-            if [ -f /swapfile ]; then
-                echo "--- 🗑️ BORRANDO SWAP PARA RECUPERAR DISCO ---"
-                sudo swapoff /swapfile || true
-                sudo rm -f /swapfile
-                # Quitar del fstab para que no vuelva
-                sudo sed -i '/\/swapfile/d' /etc/fstab
-                echo "✅ Swap eliminado. Espacio recuperado."
-            else
-                echo "ℹ️ No se detectó archivo swapfile."
-            fi
-            
-            # Mostrar espacio en disco y memoria ANTES de empezar
-            echo "--- 📊 DIAGNÓSTICO PREVIO ---"
+            # --- DIAGNÓSTICO INICIAL (Visible en logs) ---
+            echo "=========================================="
+            echo "       DIAGNÓSTICO DE RECURSOS (INICIO)   "
+            echo "=========================================="
             df -h
             free -h
+            echo "=========================================="
+            
+            # --- OPTIMIZACIÓN: SWAP (SAFETY NET) ---
+            # Incluso con 8GB de RAM, Docker Build puede comerse todo.
+            # Restauramos el Swap de 2GB por seguridad.
+            if [ $(swapon --show | wc -l) -eq 0 ]; then
+                echo "--- � CREANDO SWAP (2GB) ---"
+                sudo fallocate -l 2G /swapfile
+                sudo chmod 600 /swapfile
+                sudo mkswap /swapfile
+                sudo swapon /swapfile
+                echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+                echo "✅ Swap activado."
+            elif [ -f /swapfile ]; then
+                 echo "✅ Swap ya existe (Safety Net activo)."
+            fi
 
             cd "$PROJECT_DIR"
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
