@@ -80,25 +80,27 @@ jobs:
                 echo "✅ Swap ya configurado."
             fi
             
-            # Mostrar uso de memoria antes de empezar
+            # Mostrar espacio en disco y memoria ANTES de empezar
+            echo "--- 📊 DIAGNÓSTICO PREVIO ---"
+            df -h
             free -h
 
             cd "$PROJECT_DIR"
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             git fetch origin main
-            git reset --hard origin/main  # Esto borra cualquier cambio local y fuerza la actualización
-            git clean -fd                # Esto borra archivos nuevos que no estén en el repo
+            git reset --hard origin/main
+            git clean -fd
 
-            echo "--- INICIANDO LIMPIEZA ---"
-            # 1. Detener todos los servicios actuales
+            echo "--- INICIANDO LIMPIEZA PROFUNDA (Disk Space Fix) ---"
+            # 1. Detener servicios
             docker compose down --remove-orphans
 
-            # 2. Eliminar contenedores, imágenes y redes que no se estén usando (Limpieza profunda)
-            # Esto libera el espacio de las capas de imágenes viejas
-            docker system prune -f
-            
-            # 3. Eliminar volúmenes huérfanos (Opcional: solo si no te importa borrar datos temporales)
-            # docker volume prune -f
+            # 2. LIMPIEZA AGRESIVA: Borrar TODAS las imágenes no usadas, no solo las dangling.
+            # Esto es vital para liberar espacio en disco (ENOSPC error)
+            docker system prune -a -f
+            docker volume prune -f
+
+            echo "--- RECONSTRUYENDO SERVICIOS ---"
 
             echo "--- RECONSTRUYENDO SERVICIOS ---"
             # Construir secuencialmente para no saturar la RAM de la t2.micro
@@ -118,8 +120,5 @@ jobs:
             
             echo "--- ESPERANDO ESTABILIZACIÓN (15s) ---"
             sleep 15
-            
-            # Limpieza forzada tras deploy (A SOLICITUD DE USUARIO)
-            docker builder prune -f
             
             docker exec saas_api python -m app.seed
