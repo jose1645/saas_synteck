@@ -57,7 +57,7 @@ jobs:
           host: 34.225.67.199
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: POSTGRES_PASSWORD,INFLUXDB_PASSWORD,INFLUXDB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_IOT_ENDPOINT
+          envs: POSTGRES_PASSWORD,INFLUXDB_PASSWORD,INFLUXDB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_IOT_ENDPOINT,LAMBDA_FUNCTION_NAME
           script: |
             # Recuperar variables de entorno para este script
             export POSTGRES_PASSWORD
@@ -66,6 +66,7 @@ jobs:
             export AWS_ACCESS_KEY_ID
             export AWS_SECRET_ACCESS_KEY
             export AWS_IOT_ENDPOINT
+            export LAMBDA_FUNCTION_NAME="Aprovisionador-Iot_core"
             
             PROJECT_DIR="saas_synteck"
 
