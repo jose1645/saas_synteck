@@ -108,7 +108,7 @@ export default function PlantDetail() {
   const [selectedMetrics, setSelectedMetrics] = useState([]);
   const [chartData, setChartData] = useState([]);
   const [expandedNodes, setExpandedNodes] = useState({});
-  const { user } = useAuth();
+  const { user, clientData } = useAuth();
   const { branding } = useBranding();
   const socketRef = useRef(null);
 
@@ -620,7 +620,7 @@ export default function PlantDetail() {
               <div className="flex flex-col items-start justify-center">
                 <img src={branding.logoUrl} alt="Logo" className="h-8 w-auto object-contain" />
                 <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-widest mt-1">
-                  {branding.name}
+                  {(clientData?.name || branding.name)} SA
                 </span>
               </div>
             )}

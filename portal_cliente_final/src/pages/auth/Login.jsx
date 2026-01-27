@@ -64,7 +64,7 @@ export default function Login() {
             </div>
           )}
           <h1 className="text-4xl font-black text-brand-textPrimary tracking-tighter uppercase text-center leading-none">
-            {branding.name || 'SYNTECK'} <span className="text-brand-textSecondary font-light">OS</span>
+            {(branding.name || 'SYNTECK')} SA <span className="text-brand-textSecondary font-light">OS</span>
           </h1>
         </div>
 
