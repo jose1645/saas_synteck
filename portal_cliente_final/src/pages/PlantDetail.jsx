@@ -3,11 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Loader2, ArrowLeft, Check, ChevronDown,
   ChevronRight, Layers, Wifi, WifiOff, ChevronLeft,
-  History as HistoryIcon, Download, AlertCircle, FileSpreadsheet
+  History as HistoryIcon, Download, AlertCircle, FileSpreadsheet,
+  PanelLeftClose, PanelLeft
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend
+  Tooltip, ResponsiveContainer, Legend, Brush
 } from 'recharts';
 import { dashboardService } from '../services/dashboardService';
 import { deviceService } from '../services/deviceService';
@@ -39,6 +40,9 @@ export default function PlantDetail() {
 
   // New State for History
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [zoomIndices, setZoomIndices] = useState({ start: 0, end: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState(0);
   const [timeRange, setTimeRange] = useState('live');
   const [historyEnabled, setHistoryEnabled] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState(null);
@@ -118,6 +122,7 @@ export default function PlantDetail() {
       loadHistory(range);
     } else {
       setChartData([]);
+      setZoomIndices({ start: 0, end: 0 });
     }
   };
 
@@ -138,6 +143,7 @@ export default function PlantDetail() {
       const data = await historyService.getHistory(deviceInfo.aws_iot_uid, range, start, end);
       console.log(`📊 [PlantDetail] Historia recibida (${range}): ${data.length} puntos`);
       setChartData(data);
+      setZoomIndices({ start: 0, end: data.length > 0 ? data.length - 1 : 0 });
     } catch (e) {
       console.error("Error loading history:", e);
       alert("Error cargando históricos.");
@@ -255,6 +261,73 @@ export default function PlantDetail() {
     };
   }, [plantId, loading, availableMetrics.length, isLive]);
 
+  // Manejador para el Zoom con Scroll
+  const handleWheel = (e) => {
+    if (isLive || chartData.length === 0) return;
+
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      const delta = e.deltaY;
+      const zoomFactor = 0.05;
+      const currentRange = zoomIndices.end - zoomIndices.start;
+      const zoomAmount = Math.max(1, Math.floor(currentRange * zoomFactor));
+
+      setZoomIndices(prev => {
+        let newStart, newEnd;
+        if (delta < 0) {
+          newStart = Math.min(prev.end - 5, prev.start + zoomAmount);
+          newEnd = Math.max(prev.start + 5, prev.end - zoomAmount);
+        } else {
+          newStart = Math.max(0, prev.start - zoomAmount);
+          newEnd = Math.min(chartData.length - 1, prev.end + zoomAmount);
+        }
+        return { start: newStart, end: newEnd };
+      });
+    }
+  };
+
+  const handleBrushChange = (indices) => {
+    if (indices && typeof indices.startIndex === 'number' && typeof indices.endIndex === 'number') {
+      setZoomIndices({ start: indices.startIndex, end: indices.endIndex });
+    }
+  };
+
+  // Panning Handlers
+  const handleMouseDown = (e) => {
+    if (isLive || chartData.length === 0) return;
+    setIsDragging(true);
+    setDragStart(e.clientX);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging || isLive || chartData.length === 0) return;
+    const deltaX = e.clientX - dragStart;
+    const sensitivity = 4;
+    const moveAmount = Math.floor(deltaX / sensitivity);
+
+    if (Math.abs(moveAmount) >= 1) {
+      setZoomIndices(prev => {
+        const range = prev.end - prev.start;
+        let newStart = prev.start - moveAmount;
+        let newEnd = prev.end - moveAmount;
+        if (newStart < 0) {
+          newStart = 0;
+          newEnd = range;
+        }
+        if (newEnd > chartData.length - 1) {
+          newEnd = chartData.length - 1;
+          newStart = newEnd - range;
+        }
+        return { start: newStart, end: newEnd };
+      });
+      setDragStart(e.clientX);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
   // 3. HANDLER DE SELECCIÓN DE MÉTRICAS (Restringido por unidad)
   const handleToggleMetric = (key) => {
     const targetMetric = availableMetrics.find(m => m.key === key);
@@ -344,8 +417,9 @@ export default function PlantDetail() {
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className={`p-2 rounded-xl border transition-all duration-300 ${isSidebarOpen ? 'bg-brand-accent/10 border-brand-accent text-brand-accent' : 'bg-brand-sidebar border-brand-border text-brand-textSecondary hover:text-brand-textPrimary'}`}
+              title={isSidebarOpen ? "Collapse Menu" : "Expand Menu"}
             >
-              {isSidebarOpen ? <ChevronLeft size={20} /> : <Layers size={20} />}
+              {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeft size={20} />}
             </button>
 
             <div className="flex items-center gap-4">
@@ -386,21 +460,12 @@ export default function PlantDetail() {
                 />
 
                 <button
-                  onClick={() => handleDownload('csv')}
-                  className="p-2 bg-brand-secondary hover:bg-brand-accentSec hover:text-white text-brand-textSecondary rounded-lg transition-all border border-brand-border flex items-center gap-1.5 shadow-sm active:scale-95"
-                  title="Download CSV"
-                >
-                  <Download size={14} />
-                  <span className="text-[8px] font-black uppercase tracking-tighter">CSV</span>
-                </button>
-
-                <button
                   onClick={() => handleDownload('xlsx')}
                   className="p-2 bg-brand-secondary hover:bg-emerald-600 hover:text-white text-brand-textSecondary rounded-lg transition-all border border-brand-border flex items-center gap-1.5 shadow-sm active:scale-95"
                   title="Download Excel"
                 >
                   <FileSpreadsheet size={14} />
-                  <span className="text-[8px] font-black uppercase tracking-tighter">Excel</span>
+                  <span className="text-[8px] font-black uppercase tracking-tighter">Exportar Excel</span>
                 </button>
               </div>
             )}
@@ -413,7 +478,14 @@ export default function PlantDetail() {
         </header>
 
         <div className="flex-1 bg-brand-secondary border border-brand-border rounded-[2.5rem] p-8 shadow-2xl relative min-h-[500px] flex flex-col">
-          <div className="flex-1 min-h-0 relative">
+          <div
+            className={`flex-1 min-h-0 relative ${!isLive ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
 
             {/* OVERLAY LOADING */}
             {isHistoryLoading && (
@@ -432,15 +504,16 @@ export default function PlantDetail() {
             )}
 
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+              <LineChart data={chartData} margin={{ bottom: 80 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} opacity={0.3} />
                 <XAxis
+                  xAxisId={0}
                   dataKey="time"
                   stroke="var(--text-secondary)"
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
-                  dy={10}
+                  dy={5}
                   tickFormatter={(str) => {
                     try {
                       const date = new Date(str);
@@ -449,6 +522,30 @@ export default function PlantDetail() {
                     } catch (e) { return str; }
                   }}
                 />
+
+                {!isLive && (
+                  <XAxis
+                    xAxisId={1}
+                    dataKey="time"
+                    orientation="bottom"
+                    stroke="var(--brand-accent)"
+                    tick={{ fill: 'white', opacity: 0.8 }}
+                    fontSize={10}
+                    fontWeight="900"
+                    tickLine={false}
+                    axisLine={false}
+                    dy={30}
+                    interval="preserveStartEnd"
+                    minTickGap={100}
+                    tickFormatter={(str) => {
+                      try {
+                        const date = new Date(str);
+                        if (isNaN(date.getTime())) return '';
+                        return date.toLocaleDateString([], { day: 'numeric', month: 'short' }).toUpperCase();
+                      } catch (e) { return ''; }
+                    }}
+                  />
+                )}
                 <YAxis stroke="var(--text-secondary)" fontSize={10} tickLine={false} axisLine={false} />
 
                 <Tooltip
@@ -474,19 +571,39 @@ export default function PlantDetail() {
                   }}
                 />
 
+                {!isLive && chartData.length > 0 && (
+                  <Brush
+                    dataKey="time"
+                    height={30}
+                    stroke="var(--brand-accent)"
+                    fill="transparent"
+                    startIndex={zoomIndices.start}
+                    endIndex={zoomIndices.end}
+                    onChange={handleBrushChange}
+                    tickFormatter={() => ''}
+                    travellerWidth={10}
+                    className="custom-brush"
+                    style={{ opacity: 0.6 }}
+                  />
+                )}
+
                 <Legend verticalAlign="top" align="right" content={(props) => <CustomLegend {...props} availableMetrics={availableMetrics} />} />
 
                 {selectedMetrics.map((key) => {
                   const metric = availableMetrics.find(m => m.key === key);
+                  const color = metric?.color || CHART_COLORS[selectedMetrics.indexOf(key) % CHART_COLORS.length];
                   return (
                     <Line
                       key={key}
+                      xAxisId={0}
                       type="monotone"
                       dataKey={key}
-                      stroke={metric?.color || '#00f2ff'}
+                      stroke={color}
                       strokeWidth={3}
                       dot={false}
-                      isAnimationActive={false}
+                      activeDot={{ r: 4, strokeWidth: 0 }}
+                      animationDuration={300}
+                      isAnimationActive={isLive}
                       connectNulls={true}
                     />
                   );
@@ -523,24 +640,24 @@ function RecursiveTree({ data, toggleMetric, selectedMetrics, expandedNodes, set
                     ? (typeof currentValue === 'number' ? currentValue.toFixed(2) : currentValue)
                     : '--';
                   return (
-                    <button key={m.key} onClick={() => toggleMetric(m.key)} className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 ${active ? 'bg-brand-sidebar border-brand-accent shadow-brand-glow' : 'bg-transparent border-brand-border text-brand-textSecondary hover:border-brand-textPrimary'}`}>
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} />
+                    <button key={m.key} onClick={() => toggleMetric(m.key)} className={`w-full flex items-center justify-between py-1.5 px-3 rounded-lg border transition-all duration-200 ${active ? 'bg-brand-sidebar border-brand-accent/50 shadow-sm' : 'bg-transparent border-transparent text-brand-textSecondary hover:bg-brand-sidebar/30'}`}>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} />
                         <div className="flex flex-col items-start min-w-0 flex-1">
-                          <span className={`text-[10px] font-black tracking-widest ${active ? 'text-brand-textPrimary' : ''} truncate w-full`}>{m.label}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-[11px] font-mono font-bold ${active ? 'text-brand-accent' : 'text-brand-textSecondary'}`}>
+                          <span className={`text-[9px] font-bold tracking-tight ${active ? 'text-brand-textPrimary' : ''} truncate w-full`}>{m.label}</span>
+                          <div className="flex items-center gap-1">
+                            <span className={`text-[10px] font-mono font-black ${active ? 'text-brand-accent' : 'text-brand-textSecondary'}`}>
                               {displayValue}
                             </span>
                             {m.unit && (
-                              <span className="text-[8px] font-black bg-brand-border/30 text-brand-textSecondary px-1.5 py-0.5 rounded-md tracking-tighter">
+                              <span className="text-[7px] font-black opacity-60 tracking-tighter">
                                 {m.unit}
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
-                      {active && <div className="w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0" style={{ borderColor: m.color }}><div className="w-2 h-2" style={{ backgroundColor: m.color }} /></div>}
+                      {active && <div className="w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center flex-shrink-0" style={{ borderColor: 'var(--brand-accent)' }}><div className="w-1 h-1 rounded-full bg-brand-accent" /></div>}
                     </button>
                   );
                 })}
