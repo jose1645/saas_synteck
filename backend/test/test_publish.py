@@ -7,7 +7,7 @@ import random
 
 # --- CONFIGURACIÓN DE CONEXIÓN ---
 ENDPOINT = "a1uw1qi4z3nyi4-ats.iot.us-east-1.amazonaws.com" 
-THING_NAME = "SN-NZHSUGHPB" 
+THING_NAME = "SN-664NXMT39" 
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 CA_PATH = os.path.join(BASE_PATH, "AmazonRootCA1.pem") 
@@ -15,9 +15,9 @@ CERT_PATH = os.path.join(BASE_PATH, f"{THING_NAME}-cert.pem.crt")
 KEY_PATH = os.path.join(BASE_PATH, f"{THING_NAME}-private.pem.key")
 
 # --- JERARQUÍA BASE (FIJA) ---
-PARTNER = "inmapro"
-CLIENT = "corporativo1"
-PLANT = "planta1" 
+PARTNER = "synteck"
+CLIENT = "agroproductoseba"
+PLANT = "marduk" 
 BASE_TOPIC = f"{PARTNER}/{CLIENT}/{PLANT}/{THING_NAME}"
 
 # --- SECCIONES ANIDADAS (DINÁMICAS) ---

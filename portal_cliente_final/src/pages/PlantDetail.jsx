@@ -180,7 +180,21 @@ export default function PlantDetail() {
     const deviceUid = availableMetrics[0].deviceUid;
     const clientId = user?.client_id ?? 0;
 
-    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/monitor/ws';
+    const getWsBaseUrl = () => {
+      if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+
+      // Fallback dinámico usando VITE_API_URL
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const protocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
+      const host = apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''); // Remove trailing slash
+
+      // Si VITE_API_URL incluye "/api", lo preservamos porque Nginx lo necesita
+      // Si estamos en localhost directo sin nginx, puede que no necesitemos /api, 
+      // pero para producción (domain/api) es vital.
+      return `${protocol}://${host}/monitor/ws`;
+    };
+
+    const wsBase = getWsBaseUrl();
     const wsUrl = `${wsBase}/1/${clientId}/${plantId}/${deviceUid}`;
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;

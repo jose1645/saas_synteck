@@ -221,7 +221,14 @@ export default function TagMappingScreen({ onBack, device }) {
   const handleStartScan = () => {
     setIsScanning(true);
     const currentUser = authService.getCurrentUser();
-    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/monitor/ws';
+    const getWsBaseUrl = () => {
+      if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const protocol = apiUrl.startsWith('https') ? 'wss' : 'ws';
+      const host = apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      return `${protocol}://${host}/monitor/ws`;
+    };
+    const wsBase = getWsBaseUrl();
     const wsUrl = `${wsBase}/${currentUser?.partner_id}/${device?.client_id}/${device?.plant_id}/${device?.aws_iot_uid}`;
     socketRef.current = new WebSocket(wsUrl);
     socketRef.current.onmessage = (event) => {
@@ -472,8 +479,8 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
                         setForm({ ...form, unit: cat.units[0] });
                       }}
                       className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${activeCategory === cat.id
-                          ? `border-blue-600 ${cat.bg} scale-105 shadow-md`
-                          : 'border-slate-50 hover:border-slate-200'
+                        ? `border-blue-600 ${cat.bg} scale-105 shadow-md`
+                        : 'border-slate-50 hover:border-slate-200'
                         }`}
                     >
                       <cat.icon size={20} className={activeCategory === cat.id ? 'text-blue-600' : 'text-slate-400'} />
@@ -487,8 +494,8 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
                       setActiveCategory('custom');
                     }}
                     className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${activeCategory === 'custom'
-                        ? 'border-blue-600 bg-blue-50 scale-105'
-                        : 'border-slate-50 hover:border-slate-200'
+                      ? 'border-blue-600 bg-blue-50 scale-105'
+                      : 'border-slate-50 hover:border-slate-200'
                       }`}
                   >
                     <Settings2 size={20} className={activeCategory === 'custom' ? 'text-blue-600' : 'text-slate-400'} />
@@ -506,8 +513,8 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
                         key={u}
                         onClick={() => setForm({ ...form, unit: u })}
                         className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${form.unit === u
-                            ? 'bg-blue-600 text-white shadow-md'
-                            : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
                           }`}
                       >
                         {u}
