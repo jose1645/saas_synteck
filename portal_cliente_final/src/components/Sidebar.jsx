@@ -67,9 +67,6 @@ export default function Sidebar() {
             <span className="font-black text-brand-textPrimary tracking-tighter text-sm uppercase truncate">
               {branding.name || 'SYNTECK'}
             </span>
-            <span className="text-[8px] font-bold text-brand-textSecondary uppercase tracking-widest">
-              Terminal • XC290
-            </span>
           </div>
         )}
       </div>

@@ -98,9 +98,12 @@ def start_mqtt_bridge(ws_manager, partner_id, client_id, plant_id, device_id, me
             # --- PERSISTENCIA LOCAL (SQLite) ---
             try:
                 db = SessionLocal()
-                # Verificar si el dispositivo tiene historia habilitada
                 device = db.query(models.Device).filter(models.Device.aws_iot_uid == str(device_id)).first()
-                if device and device.history_enabled:
+                if not device:
+                    db.close()
+                    return
+
+                if device.history_enabled:
                     new_log = models.TelemetryLog(
                         device_uid=str(device_id),
                         data=clean_telemetry,
@@ -108,7 +111,88 @@ def start_mqtt_bridge(ws_manager, partner_id, client_id, plant_id, device_id, me
                     )
                     db.add(new_log)
                     db.commit()
-                    # print(f"💾 [DB] Histórico guardado localmente para {device_id}")
+
+                # --- MONITOREO DE ALERTAS AVANZADO (Triggering Engine v2) ---
+                # Inicializar trackers de tiempo si no existen (en el scope de la función de cierre)
+                if not hasattr(on_publish_received, "error_start_times"):
+                    on_publish_received.error_start_times = {} # {tag_id: start_timestamp}
+
+                tags = db.query(models.DeviceTag).filter(
+                    models.DeviceTag.device_id == device.id,
+                    (models.DeviceTag.min_value.isnot(None)) | (models.DeviceTag.max_value.isnot(None))
+                ).all()
+
+                for tag in tags:
+                    val = clean_telemetry.get(tag.mqtt_key)
+                    if not isinstance(val, (int, float)):
+                        continue
+
+                    # 1. EVALUAR ESTADO FÍSICO (¿Está fuera de rango?)
+                    out_of_max = tag.max_value is not None and val > tag.max_value
+                    out_of_min = tag.min_value is not None and val < tag.min_value
+                    
+                    is_physically_out = out_of_max or out_of_min
+                    
+                    # 2. EVALUAR RETORNO A NORMALIDAD (Aplicando Histeresis)
+                    h = tag.hysteresis or 0.0
+                    is_back_to_normal = False
+                    if tag.max_value is not None and val <= (tag.max_value - h):
+                        is_back_to_normal = True
+                    elif tag.min_value is not None and val >= (tag.min_value + h):
+                        is_back_to_normal = True
+                    elif tag.max_value is None and tag.min_value is None:
+                        is_back_to_normal = True
+
+                    # Buscar alerta activa
+                    active_alert = db.query(models.Alert).filter(
+                        models.Alert.tag_id == tag.id,
+                        models.Alert.status.in_(["ACTIVE", "ACKNOWLEDGED"])
+                    ).first()
+
+                    now = time.time()
+
+                    if is_physically_out:
+                        # Si no hay alerta activa, verificar delay
+                        if not active_alert:
+                            if tag.id not in on_publish_received.error_start_times:
+                                on_publish_received.error_start_times[tag.id] = now
+                            
+                            elapsed = now - on_publish_received.error_start_times[tag.id]
+                            delay_needed = tag.alert_delay or 0
+                            
+                            if elapsed >= delay_needed:
+                                # DISPARAR ALERTA
+                                limit_hit = tag.max_value if out_of_max else tag.min_value
+                                severity = "WARNING"
+                                if out_of_max and val > (tag.max_value * 1.2): severity = "CRITICAL"
+                                elif out_of_min and val < (tag.min_value * 0.8): severity = "CRITICAL"
+
+                                new_alert = models.Alert(
+                                    device_id=device.id,
+                                    tag_id=tag.id,
+                                    severity=severity,
+                                    title=f"Límite Excedido: {tag.display_name or tag.mqtt_key}",
+                                    message=f"Valor fuera de rango por {int(elapsed)}s. Detectado: {val} {tag.unit or ''}",
+                                    value_detected=val,
+                                    limit_value=limit_hit,
+                                    breach_started_at=datetime.fromtimestamp(on_publish_received.error_start_times[tag.id])
+                                )
+                                db.add(new_alert)
+                                db.commit()
+                                # Limpiar tracker ya que se convirtió en alerta
+                                if tag.id in on_publish_received.error_start_times:
+                                    del on_publish_received.error_start_times[tag.id]
+                    else:
+                        # Si está en rango normal o en zona de histeresis
+                        # Limpiar el tracker de tiempo si el valor ya no es "erróneo"
+                        if not is_physically_out and tag.id in on_publish_received.error_start_times:
+                            del on_publish_received.error_start_times[tag.id]
+
+                        # REVISAR SI DEBEMOS CERRAR ALERTA (Solo si superó la histeresis)
+                        if is_back_to_normal and active_alert:
+                            active_alert.status = "CLEARED"
+                            db.commit()
+
                 db.close()
             except Exception as db_err:
                 print(f"❌ [DB ERROR] No se pudo guardar histórico: {db_err}")

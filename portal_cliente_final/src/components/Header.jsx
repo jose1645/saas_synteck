@@ -35,7 +35,7 @@ export default function Header() {
             </p>
             {/* NOMBRE DEL USUARIO (Alvaro) */}
             <p className="text-[9px] font-mono text-brand-textSecondary uppercase tracking-tighter">
-              Terminal: {user?.full_name}
+              {user?.full_name || 'Usuario'}
             </p>
           </div>
 

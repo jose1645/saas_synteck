@@ -51,12 +51,51 @@ class UserLoginOut(BaseModel):
     partner_id: Optional[int]
     client_id: Optional[int]
     permissions: List[str] # Lista de códigos: ["dashboard.view", "devices.create"]
+
+class AlertOut(BaseModel):
+    id: int
+    device_id: int
+    tag_id: int
+    severity: str
+    status: str
+    title: str
+    message: Optional[str]
+    value_detected: Optional[float]
+    limit_value: Optional[float]
+    breach_started_at: Optional[datetime]
+    created_at: datetime
+    acknowledged_at: Optional[datetime]
+    acknowledged_by: Optional[int]
+
+    class Config:
+        from_attributes = True
+
+class TagConfigOut(BaseModel):
+    id: int
+    device_id: int
+    device_name: str
+    plant_name: str
+    mqtt_key: str
+    display_name: Optional[str] = None
+    unit: Optional[str] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+    hysteresis: Optional[float] = 0.0
+    alert_delay: Optional[int] = 0
+
+    class Config:
+        from_attributes = True
+
+class AlertACKRequest(BaseModel):
+    alert_id: int
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -304,4 +343,9 @@ class TagRegistration(BaseModel):
     max_value: Optional[float] = None
     label_0: Optional[str] = None
     label_1: Optional[str] = None
+    
+    # Parámetros de Alerta
+    hysteresis: Optional[float] = 0.0
+    alert_delay: Optional[int] = 0
+    
     model_config = ConfigDict(from_attributes=True)

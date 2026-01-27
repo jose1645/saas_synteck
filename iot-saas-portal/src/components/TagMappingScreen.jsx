@@ -251,7 +251,8 @@ export default function TagMappingScreen({ onBack, device }) {
     setEditingTag({
       name: key, path: path, display_name: "",
       type: isBool ? 'boolean' : 'numeric', unit: "",
-      min: "", max: "", label_0: "OFF", label_1: "ON"
+      min: "", max: "", label_0: "OFF", label_1: "ON",
+      hysteresis: 0, alert_delay: 0
     });
     setIsDrawerOpen(true);
   };
@@ -270,7 +271,9 @@ export default function TagMappingScreen({ onBack, device }) {
         min_value: formData.min !== "" ? parseFloat(formData.min) : null,
         max_value: formData.max !== "" ? parseFloat(formData.max) : null,
         label_0: formData.type === 'boolean' ? formData.label_0 : null,
-        label_1: formData.type === 'boolean' ? formData.label_1 : null
+        label_1: formData.type === 'boolean' ? formData.label_1 : null,
+        hysteresis: formData.hysteresis !== "" ? parseFloat(formData.hysteresis) : 0,
+        alert_delay: formData.alert_delay !== "" ? parseInt(formData.alert_delay) : 0
       };
 
       const res = await deviceService.registerTag(payload);
@@ -339,7 +342,7 @@ export default function TagMappingScreen({ onBack, device }) {
                           <p className="text-[9px] font-mono text-slate-400 uppercase">{tag.mqtt_key}</p>
                         </td>
                         <td className="p-5 font-bold text-blue-500 uppercase text-[10px]">{tag.data_type}</td>
-                        <td className="p-5 text-right"><button onClick={() => { setEditingTag({ ...tag, name: tag.mqtt_key, type: tag.data_type, min: tag.min_value, max: tag.max_value }); setIsDrawerOpen(true); }} className="text-slate-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all"><Edit3 size={16} /></button></td>
+                        <td className="p-5 text-right"><button onClick={() => { setEditingTag({ ...tag, name: tag.mqtt_key, type: tag.data_type, min: tag.min_value, max: tag.max_value, hysteresis: tag.hysteresis, alert_delay: tag.alert_delay }); setIsDrawerOpen(true); }} className="text-slate-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-all"><Edit3 size={16} /></button></td>
 
                         <td className="p-5 text-right flex justify-end gap-2">
                           <button
@@ -395,7 +398,7 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
 
   useEffect(() => {
     if (isOpen) {
-      setForm(initialData || { name: "", display_name: "", unit: "", path: "", type: "numeric", min: "", max: "", label_0: "OFF", label_1: "ON" });
+      setForm(initialData || { name: "", display_name: "", unit: "", path: "", type: "numeric", min: "", max: "", label_0: "OFF", label_1: "ON", hysteresis: 0, alert_delay: 0 });
 
       // Auto-detectar categoría si ya tiene unidad
       if (initialData?.unit) {
@@ -552,6 +555,42 @@ function TagFormDrawer({ isOpen, onClose, initialData, onSave, isLoading }) {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Límite Máximo</label>
                   <input disabled={isLoading} type="number" className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner" value={form.max} onChange={e => setForm({ ...form, max: e.target.value })} placeholder="100" />
+                </div>
+              </div>
+              <div className="pt-6 border-t border-slate-100 space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Settings2 size={12} /> Robustez de Alarma
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                      Histéresis (Banda Muerta)
+                      <HelpCircle size={10} className="text-slate-300" title="Rango para que la alarma se desactive" />
+                    </label>
+                    <input
+                      disabled={isLoading}
+                      type="number"
+                      step="0.01"
+                      className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner"
+                      value={form.hysteresis}
+                      onChange={e => setForm({ ...form, hysteresis: e.target.value })}
+                      placeholder="0.5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                      Retardo de Alerta (Seg)
+                      <HelpCircle size={10} className="text-slate-300" title="Tiempo que debe persistir el error" />
+                    </label>
+                    <input
+                      disabled={isLoading}
+                      type="number"
+                      className="w-full bg-slate-50 border-2 border-slate-50 focus:border-blue-500 rounded-2xl px-6 py-4 text-sm font-bold outline-none shadow-inner"
+                      value={form.alert_delay}
+                      onChange={e => setForm({ ...form, alert_delay: e.target.value })}
+                      placeholder="5"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

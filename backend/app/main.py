@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app import models
-from app.router import clients, plants, devices, auth, stats, partners, monitor, dashboards
+from app.router import clients, plants, devices, auth, stats, partners, monitor, dashboards, alerts
 
 # Crear tablas
 models.Base.metadata.create_all(bind=engine)
@@ -79,5 +79,6 @@ app.include_router(stats.router, tags=["Stats"])
 app.include_router(partners.router)
 app.include_router(monitor.router)
 app.include_router(dashboards.router)
+app.include_router(alerts.router)
 from app.router import historical
 app.include_router(historical.router)

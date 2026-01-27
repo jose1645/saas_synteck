@@ -80,7 +80,7 @@ export default function Login() {
           <form className="space-y-6" onSubmit={handleSubmit} noValidate>
             {/* Campo Usuario (Email) */}
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-brand-textSecondary uppercase tracking-widest ml-1">Terminal User (Email)</label>
+              <label className="block text-[10px] font-black text-brand-textSecondary uppercase tracking-widest ml-1">Email de Acceso</label>
               <div className="relative group">
                 <UserRound className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${error ? 'text-red-500' : 'text-brand-textSecondary group-focus-within:text-brand-accent'}`} size={18} />
                 <input

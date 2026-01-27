@@ -3,8 +3,8 @@ import api from './api';
 export const historyService = {
     getHistory: async (deviceUid, timeRange, start = null, end = null) => {
         const params = { time_range: timeRange };
-        if (start) params.start = start.toISOString();
-        if (end) params.end = end.toISOString();
+        if (start) params.start = (start instanceof Date ? start : new Date(start)).toISOString();
+        if (end) params.end = (end instanceof Date ? end : new Date(end)).toISOString();
 
         const response = await api.get(`/historical/${deviceUid}`, { params });
         return response.data;
@@ -12,8 +12,8 @@ export const historyService = {
 
     downloadHistory: async (deviceUid, timeRange, start = null, end = null, format = 'xlsx') => {
         const params = { time_range: timeRange, format: format };
-        if (start) params.start = start.toISOString();
-        if (end) params.end = end.toISOString();
+        if (start) params.start = (start instanceof Date ? start : new Date(start)).toISOString();
+        if (end) params.end = (end instanceof Date ? end : new Date(end)).toISOString();
 
         const response = await api.get(`/historical/${deviceUid}`, {
             params,
