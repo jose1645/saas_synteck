@@ -111,6 +111,10 @@ jobs:
             # Esto es vital para liberar espacio en disco (ENOSPC error)
             docker system prune -a -f
             docker volume prune -f
+            
+            # 🧨 IMPORTANTE: Borrar volumen de Postgres para que tome el nuevo password
+            # Si no hacemos esto, el error "password authentication failed" persistirá
+            docker volume rm saas_synteck_postgres_data || true
 
             echo "--- RECONSTRUYENDO SERVICIOS ---"
 
