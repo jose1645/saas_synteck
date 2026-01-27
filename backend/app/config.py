@@ -7,6 +7,13 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     lambda_function_name: str = "Aprovisionador-Iot_core"
     
+    # Base de Datos
+    db_user: str | None = None
+    db_password: str | None = None
+    db_host: str | None = None
+    db_name: str | None = None
+    db_port: str = "5432"
+    
     # Esta configuración le dice a Pydantic que busque un archivo .env
     model_config = SettingsConfigDict(
         env_file=".env", 
