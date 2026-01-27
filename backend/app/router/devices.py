@@ -164,8 +164,14 @@ def get_devices_by_plant(
 async def provision_device(
     device_id: int, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user) # <--- AGREGA ESTA LÍNEA
+    current_user: models.User = Depends(get_current_user)
 ):
+    def aws_slug(text: str) -> str:
+        """Normaliza un string para AWS (minúsculas, sin espacios)"""
+        if not text: return "default"
+        # Eliminar espacios y convertir a minúsculas
+        return text.replace(" ", "").lower()
+
     # --- DEBUG DE CREDENCIALES ---
     logger.info("=== DIAGNÓSTICO DE CREDENCIALES AWS ===")
     logger.info(f"Access Key ID: {settings.aws_access_key_id}")
@@ -185,17 +191,17 @@ async def provision_device(
     if not device:
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
-    partner_name = current_user.partner.name if current_user.partner else "default_partner"
+    partner_name = aws_slug(current_user.partner.name) if current_user.partner else "default_partner"
     payload = {
         "device_id": device.aws_iot_uid,
         "thingName": device.aws_iot_uid,
         "attributes": {
-                "planta": device.plant.name if device.plant else "N/A"
+                "planta": aws_slug(device.plant.name) if device.plant else "na"
             },
         "context": {
-   "partner_name": partner_name,
-        "client_name": device.plant.client.name if device.plant and device.plant.client else "default_client",
-        "plant_name": device.plant.name if device.plant else "default_plant"
+            "partner_name": partner_name,
+            "client_name": aws_slug(device.plant.client.name) if device.plant and device.plant.client else "default_client",
+            "plant_name": aws_slug(device.plant.name) if device.plant else "default_plant"
         }
     }
     

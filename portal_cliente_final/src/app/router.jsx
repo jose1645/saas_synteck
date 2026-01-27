@@ -5,6 +5,7 @@ import AuthLayout from '../components/layout/AuthLayout';
 import MainLayout from '../layout/MainLayout';
 import Dashboard from '../pages/Dashboard';
 import FleetView from '../components/layout/FleetView';
+import AlertSettings from '../pages/AlertSettings';
 import PlantDetail from '../pages/PlantDetail'; // Necesitarás crear esta vista
 
 export default function AppRouter() {
@@ -40,7 +41,7 @@ export default function AppRouter() {
         {/* Otras páginas habilitadas */}
         <Route path="/fleet" element={<FleetView />} />
         <Route path="/reports" element={<div className="p-8 text-brand-textPrimary">Centro de Reportes Analíticos</div>} />
-        <Route path="/settings" element={<div className="p-8 text-brand-textPrimary">Configuración del Sistema</div>} />
+        <Route path="/settings" element={<AlertSettings />} />
         <Route path="/admin" element={<div className="p-8 text-brand-textPrimary">Terminal de Administración Crítica</div>} />
       </Route>
 

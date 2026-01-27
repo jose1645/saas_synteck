@@ -21,12 +21,12 @@ def get_dashboard_summary(
     device_q = db.query(models.Device)
 
     # 2. APLICACIÓN DE FILTROS SEGÚN EL USUARIO
-    if current_user.partner_id is None:
+    if current_user.partner_id is None and current_user.client_id is None:
         # MODO SUPERADMIN
         p_count = partner_q.filter(models.Partner.is_active == True).scalar()
         c_count = client_q.filter(models.Client.is_active == True).scalar()
         d_base = device_q
-    else:
+    elif current_user.partner_id:
         # MODO INTEGRADOR (PARTNER)
         p_count = 1
         c_count = client_q.filter(
@@ -37,6 +37,14 @@ def get_dashboard_summary(
         # Seguridad: Solo dispositivos que pertenezcan a los clientes de este Partner
         d_base = device_q.join(models.Plant).join(models.Client).filter(
             models.Client.partner_id == current_user.partner_id
+        )
+    else:
+        # MODO CLIENTE FINAL
+        p_count = 0
+        c_count = 1
+        # Solo dispositivos de este cliente
+        d_base = device_q.join(models.Plant).filter(
+            models.Plant.client_id == current_user.client_id
         )
 
     # 3. CÁLCULO DE RESULTADOS FINALES

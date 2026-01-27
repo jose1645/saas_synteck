@@ -44,7 +44,9 @@ def get_device_tags_for_dashboard(
             "min_value": tag.min_value,
             "max_value": tag.max_value,
             "label_0": tag.label_0,
-            "label_1": tag.label_1
+            "label_1": tag.label_1,
+            "hysteresis": tag.hysteresis,
+            "alert_delay": tag.alert_delay
         })
 
     return output

@@ -170,6 +170,7 @@ class Device(Base):
     allowed_topics = relationship("DeviceTopic", back_populates="device")
     plant = relationship("Plant", back_populates="devices")
     tags = relationship("DeviceTag", back_populates="device", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")
 
 # ======================================================
 # AUTH INTERNO + RBAC
@@ -283,11 +284,47 @@ class DeviceTag(Base):
     label_1 = Column(String, nullable=True)         # Ej: ON / NORMAL
     
     is_active = Column(Boolean, default=True)
+    
+    # Parámetros de Calidad de Alarmas (Configurables por Partner)
+    hysteresis = Column(Float, default=0.0)         # Banda muerta para el retorno al rango normal
+    alert_delay = Column(Integer, default=0)        # Segundos que debe persistir el error para disparar alerta
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relación hacia el dispositivo
     device = relationship("Device", back_populates="tags")
+    alerts = relationship("Alert", back_populates="tag")
+
+class Alert(Base):
+    """
+    Registro centralizado de anomalías y eventos críticos.
+    Maneja el ciclo de vida de la alerta: ACTIVE -> ACKNOWLEDGED -> CLEARED.
+    """
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    tag_id = Column(Integer, ForeignKey("device_tags.id"), nullable=False, index=True)
+    
+    severity = Column(String, default="WARNING")   # CRITICAL, WARNING, INFO
+    status = Column(String, default="ACTIVE")      # ACTIVE, ACKNOWLEDGED, CLEARED
+    
+    title = Column(String, nullable=False)
+    message = Column(String)
+    value_detected = Column(Float, nullable=True)
+    limit_value = Column(Float, nullable=True)
+    
+    # Auditoría
+    breach_started_at = Column(DateTime(timezone=True), nullable=True) # Cuándo cruzó el umbral realmente
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    acknowledged_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # Relaciones
+    device = relationship("Device", back_populates="alerts")
+    tag = relationship("DeviceTag", back_populates="alerts")
+    ack_user = relationship("User")
 
 class TelemetryLog(Base):
     """

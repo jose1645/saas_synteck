@@ -5,7 +5,7 @@ import os
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app import models, auth
-from datetime import datetime
+from datetime import datetime, timedelta
 import io
 import csv
 import pandas as pd
@@ -19,8 +19,6 @@ DB_NAME = os.getenv("AWS_TIMESTREAM_DB")
 TABLE_NAME = os.getenv("AWS_TIMESTREAM_TABLE")
 REGION = os.getenv("AWS_REGION", "us-east-1")
 
-from datetime import datetime, timedelta
-
 @router.get("/{device_uid}")
 def get_device_history(
     device_uid: str,
@@ -31,6 +29,7 @@ def get_device_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    print(f"📡 [Historical] Petición recibida: {device_uid} | Rango: {time_range} | Start: {start} | End: {end}")
     # 1. Validar que el dispositivo existe y el usuario tiene acceso
     # Traemos el timezone del cliente a través de la relación Device -> Plant -> Client
     device = db.query(models.Device).filter(models.Device.aws_iot_uid == device_uid).first()
@@ -58,21 +57,50 @@ def get_device_history(
         except Exception as e:
              raise HTTPException(status_code=500, detail="Error connecting to AWS")
 
-        # Determinar rango de tiempo SQL
+        # Determinar rango de tiempo SQL y resolución (Agregación)
+        resolution = "1s" # Default
         if time_range == "custom" and start and end:
+            s_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            e_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            duration = e_dt - s_dt
+            
+            if duration > timedelta(days=7): resolution = "1h"
+            elif duration > timedelta(days=1): resolution = "5m"
+            elif duration > timedelta(hours=6): resolution = "1m"
+            else: resolution = "1s"
+
             time_predicate = f"time BETWEEN from_iso8601_timestamp('{start}') AND from_iso8601_timestamp('{end}')"
         else:
             interval = "24h" # Default
-            if time_range in ["1h", "6h", "24h", "7d", "30d"]:
-                interval = time_range
+            if time_range == "1h": 
+                interval = "1h"
+                resolution = "1s"
+            elif time_range == "6h":
+                interval = "6h"
+                resolution = "10s"
+            elif time_range == "24h":
+                interval = "24h"
+                resolution = "1m"
+            elif time_range == "7d":
+                interval = "7d"
+                resolution = "5m"
+            elif time_range in ["30d", "custom"]:
+                interval = "30d"
+                resolution = "1h"
+            
             time_predicate = f"time > ago({interval})"
         
+        # Consulta con AGREGACIÓN (bin) para Timestream
         sql = f"""
-        SELECT time, measure_name, measure_value::double, measure_value::boolean, measure_value::varchar
+        SELECT bin(time, {resolution}) as binned_time, measure_name, 
+               AVG(measure_value::double) as avg_double,
+               MAX(measure_value::boolean) as val_bool,
+               MAX(measure_value::varchar) as val_str
         FROM "{DB_NAME}"."{TABLE_NAME}"
         WHERE {time_predicate}
         AND device_uid = '{device_uid}'
-        ORDER BY time ASC
+        GROUP BY bin(time, {resolution}), measure_name
+        ORDER BY binned_time ASC
         """
         
         try:
@@ -84,7 +112,7 @@ def get_device_history(
             for row in raw_rows:
                 data = row['Data']
                 ts = data[0]['ScalarValue'][:-3] 
-                # Timestream devuelve UTC naive string. La guardamos tal cual (UTC).
+                # binned_time ya viene agrupado por Timestream
                 dt_obj = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S.%f000') 
                 time_key = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
                 
@@ -95,6 +123,7 @@ def get_device_history(
                 all_measure_names.add(measure_name)
                 
                 val = None
+                # Si es double/float usamos el promedio calculado por AWS
                 if 'ScalarValue' in data[2] and data[2]['ScalarValue'] != 'null':
                     val = float(data[2]['ScalarValue'])
                 elif 'ScalarValue' in data[3] and data[3]['ScalarValue'] != 'null':
@@ -131,20 +160,53 @@ def get_device_history(
         
         logs = query.order_by(models.TelemetryLog.timestamp.asc()).all()
         
-        # Agrupación por segundo para evitar filas fragmentadas
+        # Agrupación por intervalo dinámico para evitar saturar el navegador (SQLite Fallback)
+        bucket_minutes = 1
+        if time_range == "7d": bucket_minutes = 5
+        elif time_range == "30d": bucket_minutes = 60
+        elif time_range == "custom" and start and end:
+            s_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            e_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            duration = e_dt - s_dt
+            if duration > timedelta(days=7): bucket_minutes = 60
+            elif duration > timedelta(days=1): bucket_minutes = 5
+            elif duration > timedelta(hours=6): bucket_minutes = 1
+            else: bucket_minutes = 0 # 0 significa data cruda (segundo a segundo)
+        elif time_range == "6h": bucket_minutes = 1 # Opcional: promedios por minuto para 6h
+        
         aggregated_rows = {}
         for log in logs:
-            time_key = log.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            # Calcular marca de tiempo truncada al bucket_minutes
+            ts = log.timestamp
+            if bucket_minutes > 1:
+                # Redondear hacia abajo al inicio del bucket
+                replaced_minute = (ts.minute // bucket_minutes) * bucket_minutes
+                ts = ts.replace(minute=replaced_minute, second=0, microsecond=0)
+            
+            time_key = ts.strftime("%Y-%m-%d %H:%M:%S")
             
             if time_key not in aggregated_rows:
-                aggregated_rows[time_key] = {"time": time_key}
+                aggregated_rows[time_key] = {"time": time_key, "_counts": {}}
             
             if isinstance(log.data, dict):
                 for k, v in log.data.items():
-                    aggregated_rows[time_key][k] = v
                     all_measure_names.add(k)
+                    if isinstance(v, (int, float)):
+                        current_val = aggregated_rows[time_key].get(k, 0)
+                        aggregated_rows[time_key][k] = current_val + v
+                        aggregated_rows[time_key]["_counts"][k] = aggregated_rows[time_key]["_counts"].get(k, 0) + 1
+                    else:
+                        # Para booleanos/strings, tomamos el último
+                        aggregated_rows[time_key][k] = v
         
-        final_list = list(aggregated_rows.values())
+        # Calcular promedios finales
+        final_list = []
+        for row in aggregated_rows.values():
+            counts = row.pop("_counts")
+            for k in list(row.keys()):
+                if k != "time" and k in counts:
+                    row[k] = row[k] / counts[k]
+            final_list.append(row)
 
     # --- REDONDEO GLOBAL (Para todos los formatos) ---
     for item in final_list:
