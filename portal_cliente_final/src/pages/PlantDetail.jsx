@@ -49,16 +49,6 @@ export default function PlantDetail() {
   // Buffer de últimos valores conocidos para cada tag
   const [lastKnownValues, setLastKnownValues] = useState({});
 
-  // Alerta de restricción de unidades
-  const [showUnitAlert, setShowUnitAlert] = useState(false);
-
-  // Auto-cerrar alerta después de 3s
-  useEffect(() => {
-    if (showUnitAlert) {
-      const timer = setTimeout(() => setShowUnitAlert(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showUnitAlert]);
 
   // 1. CARGA DE CONFIGURACIÓN Y ASIGNACIÓN DE COLORES
   useEffect(() => {
@@ -271,16 +261,11 @@ export default function PlantDetail() {
         return [key];
       }
 
-      // Verificar la unidad de las métricas ya seleccionadas
-      const firstSelectedKey = prev[0];
-      const firstSelectedMetric = availableMetrics.find(m => m.key === firstSelectedKey);
-
-      // Si la unidad coincide, permitimos selección múltiple
-      // Si la unidad es distinta, limpiamos lo anterior y dejamos solo la nueva
-      if (firstSelectedMetric?.unit !== targetMetric.unit) {
-        setShowUnitAlert(true);
-        return [key];
-      }
+      // Permitimos selección múltiple sin restricción de unidades
+      // if (firstSelectedMetric?.unit !== targetMetric.unit) {
+      //   setShowUnitAlert(true);
+      //   return [key];
+      // }
 
       return [...prev, key];
     });
@@ -325,16 +310,6 @@ export default function PlantDetail() {
         </div>
 
         {/* ALERTA DE RESTRICCIÓN DE UNIDADES */}
-        {showUnitAlert && (
-          <div className="mx-4 mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl animate-in slide-in-from-bottom-2 duration-300">
-            <div className="flex items-start gap-3">
-              <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-[10px] font-bold text-amber-500 leading-tight uppercase tracking-tight">
-                Restricción: Solo puedes visualizar variables de un mismo tipo ({availableMetrics.find(m => m.key === selectedMetrics[0])?.unit || 'N/A'}) simultáneamente.
-              </p>
-            </div>
-          </div>
-        )}
       </aside>
 
       {/* ÁREA DE GRÁFICA */}
