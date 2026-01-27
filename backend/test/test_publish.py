@@ -7,7 +7,7 @@ import random
 
 # --- CONFIGURACIÓN DE CONEXIÓN ---
 ENDPOINT = "a1uw1qi4z3nyi4-ats.iot.us-east-1.amazonaws.com" 
-THING_NAME = "SN-664NXMT39" 
+THING_NAME = "SN-CTTSOP4GV" 
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 CA_PATH = os.path.join(BASE_PATH, "AmazonRootCA1.pem") 
