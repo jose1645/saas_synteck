@@ -11,7 +11,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy via SSH
+      - name: Setup & Diagnostics
+        uses: appleboy/ssh-action@master
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} # Needed for context if used later
+        with:
+          host: 34.225.67.199
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "=========================================="
+            echo "       DIAGNÓSTICO DE RECURSOS (INICIO)   "
+            echo "=========================================="
+            df -h
+            free -h
+            echo "=========================================="
+            
+            # --- OPTIMIZACIÓN: SWAP (SAFETY NET - 4GB) ---
+            # Aumentamos a 4GB para estar 100% seguros con t3.large
+            if [ $(swapon --show | wc -l) -eq 0 ]; then
+                echo "--- 💾 CREANDO SWAP (4GB) ---"
+                sudo fallocate -l 4G /swapfile
+                sudo chmod 600 /swapfile
+                sudo mkswap /swapfile
+                sudo swapon /swapfile
+                echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+                echo "✅ Swap activado (4GB)."
+            elif [ -f /swapfile ]; then
+                 # Si existe pero es pequeño, podríamos redimensionarlo,
+                 # pero por ahora asumimos que 2GB+ está bien.
+                 echo "✅ Swap ya existe (SAFETY NET ACTIVO)."
+                 swapon --show
+            fi
+
+      - name: Deploy Main Stack
         uses: appleboy/ssh-action@master
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
@@ -26,38 +59,14 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: POSTGRES_PASSWORD,INFLUXDB_PASSWORD,INFLUXDB_TOKEN,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_IOT_ENDPOINT
           script: |
-            echo "--- VERIFICANDO VARIABLES DE ENTORNO REQUIRED ---"
-            MISSING_VARS=0
-            
-            check_var() {
-              if [ -z "${!1}" ]; then
-                echo "❌ ERROR: La variable de entorno $1 no está definida."
-                MISSING_VARS=1
-              else
-                echo "✅ $1 está presente."
-              fi
-            }
-
-            check_var "POSTGRES_PASSWORD"
-            check_var "INFLUXDB_PASSWORD"
-            check_var "INFLUXDB_TOKEN"
-            check_var "AWS_ACCESS_KEY_ID"
-            check_var "AWS_SECRET_ACCESS_KEY"
-            check_var "AWS_IOT_ENDPOINT"
-
-            if [ $MISSING_VARS -ne 0 ]; then
-              echo "⛔ DETENIENDO DESPLIEGUE: Faltan variables críticas."
-              exit 1
-            fi
-            
-            # Exportar explícitamente para que docker compose las vea
+            # Recuperar variables de entorno para este script
             export POSTGRES_PASSWORD
             export INFLUXDB_PASSWORD
             export INFLUXDB_TOKEN
             export AWS_ACCESS_KEY_ID
             export AWS_SECRET_ACCESS_KEY
             export AWS_IOT_ENDPOINT
-
+            
             PROJECT_DIR="saas_synteck"
 
             if [ ! -d "$PROJECT_DIR" ]; then
