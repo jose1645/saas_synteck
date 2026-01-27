@@ -18,7 +18,6 @@ logger.addHandler(handler)
 ENV_TYPE = os.getenv("ENV_TYPE", "local")
 
 # 3. Configuración SMTP desde variables de entorno
-# Debug: Ver qué valores se están cargando
 mail_username = os.getenv("MAIL_USERNAME", "noreply@synteck.org")
 mail_password = os.getenv("MAIL_PASSWORD", "ckA1zu&s")
 mail_server = os.getenv("MAIL_SERVER", "smtp.zoho.com")
@@ -90,3 +89,45 @@ async def send_invitation_email(email_to: str, token: str, partner_name: str):
         import traceback
         logger.error(traceback.format_exc())
         raise  # Re-lanzamos la excepción
+
+async def send_recovery_email(email_to: str, token: str):
+    logger.info(f"🚀 Enviando recuperación para: {email_to}")
+    
+    if ENV_TYPE == "production":
+        base_url = "https://integradores.synteck.org"
+    else:
+        base_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    
+    reset_url = f"{base_url}/reset-password?token={token}&email={email_to}"
+    
+    html = f"""
+    <div style="font-family: sans-serif; padding: 20px; color: #333;">
+        <h2>Recuperación de Contraseña</h2>
+        <p>Has solicitado restablecer tu contraseña para Synteck OS.</p>
+        <p>Haz clic en el siguiente enlace para continuar:</p>
+        <div style="margin: 20px 0;">
+            <a href="{reset_url}" style="background-color: #00f2ff; color: #000; padding: 10px 20px; border-radius: 5px; text-decoration: none; font-weight: bold;">
+                Restablecer Contraseña
+            </a>
+        </div>
+        <p>Este enlace expirará en 1 hora.</p>
+        <p>Si no solicitaste esto, puedes ignorar este correo.</p>
+    </div>
+    """
+
+    if ENV_TYPE != "production":
+        logger.info("="*60)
+        logger.info("📧 MODO DESARROLLO - Recuperación NO enviada")
+        logger.info(f"🔗 URL de reseteo: {reset_url}")
+        logger.info("="*60)
+        return
+
+    message = MessageSchema(
+        subject="Recuperación de Contraseña - Synteck",
+        recipients=[email_to],
+        body=html,
+        subtype=MessageType.html
+    )
+    fm = FastMail(conf)
+    await fm.send_message(message)
+    logger.info(f"✅ Email de recuperación enviado a {email_to}")

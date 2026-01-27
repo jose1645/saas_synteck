@@ -50,7 +50,8 @@ class UserLoginOut(BaseModel):
     full_name: Optional[str]
     partner_id: Optional[int]
     client_id: Optional[int]
-    permissions: List[str] # Lista de códigos: ["dashboard.view", "devices.create"]
+    permissions: List[str]
+    portal_type: str # "ADMIN", "PARTNER", "CLIENT"
 
 class AlertOut(BaseModel):
     id: int
@@ -92,6 +93,13 @@ class AlertACKRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetRequest(BaseModel):
+    token: str
+    new_password: str
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str

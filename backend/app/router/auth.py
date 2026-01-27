@@ -15,6 +15,9 @@ from ..auth import (
     create_refresh_token,
     hash_password
 )
+from ..utils.mailer import send_recovery_email
+import uuid
+from datetime import timedelta
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -45,20 +48,25 @@ def login(
         raise HTTPException(status_code=401, detail="Cuenta desactivada")
 
     # 4. Domain Locking (Portales)
-    if x_portal_type == "CLIENT_PORTAL":
-        if user.client_id is None:
-            raise HTTPException(status_code=403, detail="Acceso denegado: Portal de clientes.")
-
-    elif x_portal_type == "PARTNER_PORTAL":
-        if user.partner_id is None:
-            raise HTTPException(status_code=403, detail="Acceso denegado: Portal de socios.")
-
-    elif x_portal_type == "ADMIN_PORTAL":
-        if not is_super_admin:
-            raise HTTPException(status_code=403, detail="Acceso denegado: Solo administradores globales.")
+    # 4. Domain Locking (MODIFICADO PARA PERMITIR REDIRECCIÓN FRONTEND)
+    # Ya no bloqueamos el acceso aquí. Dejamos que el token se genere y el frontend
+    # lea user.portal_type para redirigir a la URL correcta.
     
-    else:
-        raise HTTPException(status_code=400, detail="Portal de acceso no válido.")
+    # if x_portal_type == "CLIENT_PORTAL":
+    #     if user.client_id is None:
+    #         raise HTTPException(status_code=403, detail="Acceso denegado: Portal de clientes.")
+
+    # elif x_portal_type == "PARTNER_PORTAL":
+    #     if user.partner_id is None:
+    #         raise HTTPException(status_code=403, detail="Acceso denegado: Portal de socios.")
+
+    # elif x_portal_type == "ADMIN_PORTAL":
+    #     if not is_super_admin:
+    #         raise HTTPException(status_code=403, detail="Acceso denegado: Solo administradores globales.")
+    
+    # else:
+    #     # Warning: Si no mandan header, asumimos que saben lo que hacen o es una prueba API
+    #     pass
 
     # 5. Permisos y Roles
     permissions = set()
@@ -74,6 +82,13 @@ def login(
     access_token = create_access_token(data={"sub": str(user.id)})
     refresh_token = create_refresh_token(db=db, user_id=user.id)
 
+    # 7. Determinar Portal Target
+    portal_type = "CLIENT"
+    if is_super_admin:
+        portal_type = "ADMIN"
+    elif user.partner_id and not user.client_id:
+        portal_type = "PARTNER"
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -84,7 +99,8 @@ def login(
             "full_name": user.full_name,
             "partner_id": user.partner_id,
             "client_id": user.client_id,
-            "permissions": list(permissions)
+            "permissions": list(permissions),
+            "portal_type": portal_type
         }
     }
 
@@ -130,6 +146,13 @@ def refresh_token(data: schemas.RefreshTokenRequest, db: Session = Depends(get_d
     # 6. Commit de la revocación y el nuevo token
     db.commit()
 
+    # 7. Determinar Portal Target
+    portal_type = "CLIENT"
+    if user.partner_id is None and user.client_id is None:
+        portal_type = "ADMIN"
+    elif user.partner_id and not user.client_id:
+        portal_type = "PARTNER"
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -140,7 +163,8 @@ def refresh_token(data: schemas.RefreshTokenRequest, db: Session = Depends(get_d
             "full_name": user.full_name,
             "partner_id": user.partner_id,
             "client_id": user.client_id,
-            "permissions": list(permissions)
+            "permissions": list(permissions),
+            "portal_type": portal_type
         }
     }
 @router.post("/complete-setup")
@@ -198,6 +222,41 @@ def complete_setup(data: schemas.CompleteSetupRequest, db: Session = Depends(dat
         )
         
         
+@router.post("/forgot-password")
+async def forgot_password(data: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == data.email).first()
+    if not user:
+        # Por seguridad no revelamos si el usuario existe o no
+        return {"message": "Si el correo está registrado, recibirás instrucciones pronto."}
+
+    # Generar token de recuperación
+    token = str(uuid.uuid4())
+    user.verification_token = token
+    user.token_expires_at = datetime.utcnow() + timedelta(hours=1)
+    db.commit()
+
+    # Enviar correo
+    await send_recovery_email(user.email, token)
+    
+    return {"message": "Si el correo está registrado, recibirás instrucciones pronto."}
+
+@router.post("/reset-password")
+def reset_password(data: schemas.PasswordResetRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(
+        models.User.verification_token == data.token
+    ).first()
+
+    if not user or (user.token_expires_at and datetime.utcnow() > user.token_expires_at):
+        raise HTTPException(status_code=400, detail="Token inválido o expirado")
+
+    user.password_hash = hash_password(data.new_password)
+    user.verification_token = None
+    user.token_expires_at = None
+    user.is_verified = True # Por si acaso se le olvidó antes de verificar
+    db.commit()
+
+    return {"message": "Contraseña actualizada exitosamente."}
+
 @router.post("/logout")
 def logout(data: schemas.RefreshTokenRequest, db: Session = Depends(get_db)):
     """
