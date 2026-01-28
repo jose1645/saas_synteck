@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Brush, ReferenceArea
 } from 'recharts';
 import { dashboardService } from '../services/dashboardService';
