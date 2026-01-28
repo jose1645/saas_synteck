@@ -723,7 +723,7 @@ export default function PlantDetail() {
 
             <ResponsiveContainer width="100%" height="100%" minHeight={400} minWidth={0}>
               <LineChart data={chartData} margin={{ bottom: 80 }}>
-                <CartesianGrid strokeDasharray="2 2" stroke="#666666" opacity={0.25} vertical={true} horizontal={true} />
+                <CartesianGrid strokeDasharray="2 2" stroke="#666666" opacity={0.5} vertical={true} horizontal={true} />
                 <XAxis
                   xAxisId={0}
                   dataKey="time"
@@ -744,29 +744,7 @@ export default function PlantDetail() {
                   }}
                 />
 
-                {!isLive && (
-                  <XAxis
-                    xAxisId={1}
-                    dataKey="time"
-                    orientation="bottom"
-                    stroke="var(--brand-accent)"
-                    tick={{ fill: 'white', opacity: 0.9 }}
-                    fontSize={13}
-                    fontWeight="900"
-                    tickLine={false}
-                    axisLine={false}
-                    dy={35}
-                    interval="preserveStartEnd"
-                    minTickGap={100}
-                    tickFormatter={(str) => {
-                      try {
-                        const date = new Date(str);
-                        if (isNaN(date.getTime())) return '';
-                        return date.toLocaleDateString([], { day: 'numeric', month: 'short' }).toUpperCase();
-                      } catch (e) { return ''; }
-                    }}
-                  />
-                )}
+
                 <YAxis stroke="var(--text-secondary)" fontSize={13} fontWeight="bold" tickLine={false} axisLine={false} />
 
                 <Tooltip
