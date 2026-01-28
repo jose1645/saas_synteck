@@ -100,7 +100,9 @@ const TimeRangeSelector = ({ selectedRange, onRangeChange, onCustomRangeChange }
                             wizardStep === 0 ? (
                                 <div className="flex items-center justify-between w-full gap-4">
                                     <div className="flex flex-col flex-1">
-                                        <span className="text-[9px] font-black text-brand-accent uppercase tracking-[0.2em] mb-1">Paso 1: Fecha Inicio</span>
+                                        <span className="text-[9px] font-black text-brand-accent uppercase tracking-[0.2em] mb-1">
+                                            Paso 1: Fecha y Hora Inicio <span className="text-white/50 ml-1 normal-case tracking-normal">(Hora:Min)</span>
+                                        </span>
                                         <input
                                             ref={startInputRef}
                                             type="datetime-local"
@@ -127,7 +129,9 @@ const TimeRangeSelector = ({ selectedRange, onRangeChange, onCustomRangeChange }
                                         <ChevronRight size={20} className="rotate-180" />
                                     </button>
                                     <div className="flex flex-col flex-1">
-                                        <span className="text-[9px] font-black text-brand-accent uppercase tracking-[0.2em] mb-1">Paso 2: Fecha Fin</span>
+                                        <span className="text-[9px] font-black text-brand-accent uppercase tracking-[0.2em] mb-1">
+                                            Paso 2: Fecha y Hora Fin <span className="text-white/50 ml-1 normal-case tracking-normal">(Hora:Min)</span>
+                                        </span>
                                         <input
                                             ref={endInputRef}
                                             type="datetime-local"

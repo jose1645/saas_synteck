@@ -4,7 +4,7 @@ import {
   Loader2, ArrowLeft, Check, ChevronDown,
   ChevronRight, Layers, Wifi, WifiOff, ChevronLeft,
   History as HistoryIcon, Download, AlertCircle, FileSpreadsheet,
-  PanelLeftClose, PanelLeft, Maximize
+  PanelLeftClose, PanelLeft, Maximize, ZoomIn, ZoomOut
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -439,6 +439,31 @@ export default function PlantDetail() {
     };
   }, [plantId, loading, availableMetrics.length, isLive, user]);
 
+  // --- ZOOM BUTTON HANDLERS ---
+  const handleZoomIn = () => {
+    if (isLive || chartData.length === 0) return;
+    const currentRange = zoomIndices.end - zoomIndices.start;
+    const zoomAmount = Math.max(1, Math.floor(currentRange * 0.2)); // 20% zoom in
+
+    setZoomIndices(prev => {
+      const newStart = Math.min(prev.end - 5, prev.start + zoomAmount);
+      const newEnd = Math.max(prev.start + 5, prev.end - zoomAmount);
+      return { start: newStart, end: newEnd };
+    });
+  };
+
+  const handleZoomOut = () => {
+    if (isLive || chartData.length === 0) return;
+    const currentRange = zoomIndices.end - zoomIndices.start;
+    const zoomAmount = Math.max(1, Math.floor(currentRange * 0.2)); // 20% zoom out
+
+    setZoomIndices(prev => {
+      const newStart = Math.max(0, prev.start - zoomAmount);
+      const newEnd = Math.min(chartData.length - 1, prev.end + zoomAmount);
+      return { start: newStart, end: newEnd };
+    });
+  };
+
   // Manejador para el Zoom con Scroll (NATIVO para evitar error de Passive Listener)
   const chartContainerRef = useRef(null);
 
@@ -630,13 +655,30 @@ export default function PlantDetail() {
             {/* TOGGLE LIVE / HISTORICO */}
             <div className="flex items-center gap-2 bg-brand-primary rounded-full p-1 border border-brand-border">
               {isDetailMode && !isLive && (
-                <button
-                  onClick={handleResetDetail}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20 transition-all animate-in fade-in zoom-in duration-300"
-                  title="Return to full summary view"
-                >
-                  <Maximize size={12} /> Reset Detail
-                </button>
+                <div className="flex items-center gap-1 bg-brand-primary p-0.5 rounded-full border border-brand-border/50">
+                  <button
+                    onClick={handleResetDetail}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20 transition-all animate-in fade-in zoom-in duration-300"
+                    title="Return to full summary view"
+                  >
+                    <Maximize size={12} /> Reset
+                  </button>
+                  <div className="w-[1px] h-4 bg-brand-border/50 mx-1"></div>
+                  <button
+                    onClick={handleZoomOut}
+                    className="p-1.5 hover:bg-white/10 rounded-full text-brand-textSecondary hover:text-white transition-all"
+                    title="Zoom Out (-)"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
+                  <button
+                    onClick={handleZoomIn}
+                    className="p-1.5 hover:bg-white/10 rounded-full text-brand-textSecondary hover:text-white transition-all"
+                    title="Zoom In (+)"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+                </div>
               )}
               <div className="flex items-center">
                 <button
@@ -725,7 +767,6 @@ export default function PlantDetail() {
               <LineChart data={chartData} margin={{ bottom: 80 }}>
                 <CartesianGrid strokeDasharray="2 2" stroke="#666666" opacity={0.5} vertical={true} horizontal={true} />
                 <XAxis
-                  xAxisId={0}
                   dataKey="time"
                   stroke="var(--text-secondary)"
                   fontSize={13}
@@ -795,7 +836,6 @@ export default function PlantDetail() {
                     <g key={`group-${key}`}>
                       {/* LÍNEA DE TENDENCIA BASE */}
                       <Line
-                        xAxisId={0}
                         type="monotone"
                         dataKey={key}
                         stroke={color}
