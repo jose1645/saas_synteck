@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, Brush
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend, Brush, ReferenceArea
 } from 'recharts';
 import { dashboardService } from '../services/dashboardService';
 import { deviceService } from '../services/deviceService';
@@ -112,11 +113,13 @@ export default function PlantDetail() {
   const { branding } = useBranding();
   const socketRef = useRef(null);
 
-  // New State for History
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [zoomIndices, setZoomIndices] = useState({ start: 0, end: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState(0);
+
+  // DRAG TO ZOOM STATE
+  const [refAreaLeft, setRefAreaLeft] = useState('');
+  const [refAreaRight, setRefAreaRight] = useState('');
+
   const [timeRange, setTimeRange] = useState('live');
   const [historyEnabled, setHistoryEnabled] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState(null);
@@ -508,40 +511,44 @@ export default function PlantDetail() {
     }
   };
 
-  // Panning Handlers
-  const handleMouseDown = (e) => {
-    if (isLive || chartData.length === 0) return;
-    setIsDragging(true);
-    setDragStart(e.clientX);
+  // --- DRAG TO ZOOM HANDLERS ---
+  const onMouseDown = (e) => {
+    if (isLive || !e) return;
+    setRefAreaLeft(e.activeLabel);
   };
 
-  const handleMouseMove = (e) => {
-    if (!isDragging || isLive || chartData.length === 0) return;
-    const deltaX = e.clientX - dragStart;
-    const sensitivity = 4;
-    const moveAmount = Math.floor(deltaX / sensitivity);
+  const onMouseMove = (e) => {
+    if (isLive || !refAreaLeft || !e) return;
+    setRefAreaRight(e.activeLabel);
+  };
 
-    if (Math.abs(moveAmount) >= 1) {
-      setZoomIndices(prev => {
-        const range = prev.end - prev.start;
-        let newStart = prev.start - moveAmount;
-        let newEnd = prev.end - moveAmount;
-        if (newStart < 0) {
-          newStart = 0;
-          newEnd = range;
-        }
-        if (newEnd > chartData.length - 1) {
-          newEnd = chartData.length - 1;
-          newStart = newEnd - range;
-        }
-        return { start: newStart, end: newEnd };
-      });
-      setDragStart(e.clientX);
+  const onMouseUp = (e) => {
+    if (isLive || !refAreaLeft || !refAreaRight) {
+      setRefAreaLeft('');
+      setRefAreaRight('');
+      return;
     }
-  };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
+    // Identificar los índices correspondientes a las etiquetas de tiempo (time)
+    // Buscamos el índice en chartData donde time coincide con refAreaLeft/Right
+    let leftIndex = chartData.findIndex(d => d.time === refAreaLeft);
+    let rightIndex = chartData.findIndex(d => d.time === refAreaRight);
+
+    if (leftIndex === -1 || rightIndex === -1) {
+      setRefAreaLeft('');
+      setRefAreaRight('');
+      return;
+    }
+
+    // Ordenar si el usuario seleccionó de derecha a izquierda
+    if (leftIndex > rightIndex) [leftIndex, rightIndex] = [rightIndex, leftIndex];
+
+    // Aplicar Zoom
+    setZoomIndices({ start: leftIndex, end: rightIndex });
+
+    // Resetear selección
+    setRefAreaLeft('');
+    setRefAreaRight('');
   };
 
   // 3. HANDLER DE SELECCIÓN DE MÉTRICAS (Restringido por unidad)
@@ -745,11 +752,7 @@ export default function PlantDetail() {
         <div className="flex-1 bg-brand-secondary border border-brand-border rounded-[2.5rem] p-8 shadow-2xl relative min-h-[500px] flex flex-col overflow-hidden">
           <div
             ref={chartContainerRef}
-            className={`flex-1 min-h-[400px] relative ${!isLive ? 'cursor-grab active:cursor-grabbing' : ''}`}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            className={`flex-1 min-h-[400px] relative ${!isLive ? 'cursor-crosshair' : ''}`}
           >
 
             {/* OVERLAY LOADING */}
@@ -769,7 +772,13 @@ export default function PlantDetail() {
             )}
 
             <ResponsiveContainer width="100%" height="100%" minHeight={400} minWidth={0}>
-              <LineChart data={chartData} margin={{ bottom: 80 }}>
+              <LineChart
+                data={chartData}
+                margin={{ bottom: 80 }}
+                onMouseDown={onMouseDown}
+                onMouseMove={onMouseMove}
+                onMouseUp={onMouseUp}
+              >
                 <CartesianGrid strokeDasharray="2 2" stroke="#666666" opacity={0.5} vertical={true} horizontal={true} />
                 <XAxis
                   dataKey="time"
@@ -868,6 +877,11 @@ export default function PlantDetail() {
                     </g>
                   );
                 })}
+                {/* VISUALIZACIÓN DE SELECCIÓN DE ZOOM */}
+                {refAreaLeft && refAreaRight && (
+                  <ReferenceArea x1={refAreaLeft} x2={refAreaRight} strokeOpacity={0.3} fill="var(--brand-accent)" fillOpacity={0.1} />
+                )}
+
               </LineChart>
             </ResponsiveContainer>
           </div>
