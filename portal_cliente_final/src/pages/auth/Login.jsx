@@ -64,7 +64,7 @@ export default function Login() {
             </div>
           )}
           <h1 className="text-4xl font-black text-brand-textPrimary tracking-tighter uppercase text-center leading-none">
-            {branding.name || 'SYNTECK'}
+            {/* branding.name || 'SYNTECK' */ 'INMAPRO S.A.'}
           </h1>
         </div>
 

@@ -723,7 +723,7 @@ export default function PlantDetail() {
 
             <ResponsiveContainer width="100%" height="100%" minHeight={400} minWidth={0}>
               <LineChart data={chartData} margin={{ bottom: 80 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} opacity={0.3} />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--brand-textSecondary)" opacity={0.15} vertical={true} horizontal={true} />
                 <XAxis
                   xAxisId={0}
                   dataKey="time"

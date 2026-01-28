@@ -65,7 +65,7 @@ export default function Sidebar() {
         {!isCollapsed && (
           <div className="flex flex-col min-w-0 mt-2">
             <span className="font-black text-brand-textPrimary tracking-tighter text-sm uppercase truncate">
-              {branding.name || 'SYNTECK'}
+              {/* branding.name || 'SYNTECK' */ 'INMAPRO S.A.'}
             </span>
           </div>
         )}
