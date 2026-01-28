@@ -654,16 +654,21 @@ export default function PlantDetail() {
           <div className="flex items-center gap-6">
             {/* TOGGLE LIVE / HISTORICO */}
             <div className="flex items-center gap-2 bg-brand-primary rounded-full p-1 border border-brand-border">
-              {isDetailMode && !isLive && (
-                <div className="flex items-center gap-1 bg-brand-primary p-0.5 rounded-full border border-brand-border/50">
-                  <button
-                    onClick={handleResetDetail}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20 transition-all animate-in fade-in zoom-in duration-300"
-                    title="Return to full summary view"
-                  >
-                    <Maximize size={12} /> Reset
-                  </button>
-                  <div className="w-[1px] h-4 bg-brand-border/50 mx-1"></div>
+              {/* ZOOM CONTROLS (Always visible in History Mode) */}
+              {!isLive && chartData.length > 0 && (
+                <div className="flex items-center gap-1 bg-brand-primary p-0.5 rounded-full border border-brand-border/50 animate-in fade-in zoom-in duration-300">
+                  {isDetailMode && (
+                    <>
+                      <button
+                        onClick={handleResetDetail}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20 transition-all"
+                        title="Return to full summary view"
+                      >
+                        <Maximize size={12} /> Reset
+                      </button>
+                      <div className="w-[1px] h-4 bg-brand-border/50 mx-1"></div>
+                    </>
+                  )}
                   <button
                     onClick={handleZoomOut}
                     className="p-1.5 hover:bg-white/10 rounded-full text-brand-textSecondary hover:text-white transition-all"
