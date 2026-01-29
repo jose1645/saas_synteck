@@ -98,6 +98,26 @@ const enrichPoint = (point, metrics) => {
   return point;
 };
 
+const LiveClock = () => {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-end mr-4 animate-in fade-in duration-300">
+      <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-widest">
+        {time.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+      </span>
+      <span className="text-[16px] font-black text-brand-textPrimary tabular-nums leading-none">
+        {time.toLocaleTimeString()}
+      </span>
+    </div>
+  );
+};
+
 export default function PlantDetail() {
   const { plantId } = useParams();
   const navigate = useNavigate();
@@ -740,6 +760,9 @@ export default function PlantDetail() {
                 </button>
               </div>
             )}
+
+            {/* CLOCK (Only in Live & Connected) */}
+            {isLive && connected && <LiveClock />}
 
             <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${connected ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-500' : 'border-red-500/30 bg-red-500/5 text-red-500'}`}>
               <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
