@@ -107,7 +107,7 @@ const LiveClock = () => {
   }, []);
 
   return (
-    <div className="flex flex-col items-end mr-4 animate-in fade-in duration-300">
+    <div className="flex flex-col items-start animate-in fade-in duration-300">
       <span className="text-[10px] font-bold text-brand-textSecondary uppercase tracking-widest">
         {time.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
       </span>
@@ -675,6 +675,7 @@ export default function PlantDetail() {
                 </span>
               </div>
             )}
+            {isLive && connected && <LiveClock />}
           </div>
 
           <div className="flex items-center gap-6">
@@ -762,7 +763,7 @@ export default function PlantDetail() {
             )}
 
             {/* CLOCK (Only in Live & Connected) */}
-            {isLive && connected && <LiveClock />}
+            {/* CLOCK (Moved to Left) */}
 
             <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 ${connected ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-500' : 'border-red-500/30 bg-red-500/5 text-red-500'}`}>
               <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
